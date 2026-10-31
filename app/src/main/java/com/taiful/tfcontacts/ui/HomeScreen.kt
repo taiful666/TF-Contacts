@@ -83,6 +83,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.TextStyle
@@ -116,6 +118,8 @@ fun HomeScreen(
     onDuplicates: () -> Unit,
     onTools: () -> Unit,
     dupCount: Int,
+    isDefault: Boolean = true,
+    onMakeDefault: () -> Unit = {},
 ) {
     Scaffold(
         bottomBar = {
@@ -126,11 +130,31 @@ fun HomeScreen(
             }
         }
     ) { pad ->
-        Box(Modifier.padding(pad).consumeWindowInsets(pad).fillMaxSize()) {
+        Column(Modifier.padding(pad).consumeWindowInsets(pad).fillMaxSize()) {
+            if (!isDefault) {
+                Surface(
+                    onClick = onMakeDefault,
+                    color = Color(0xFFF59E0B).copy(alpha = 0.18f),
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 12.dp, vertical = 6.dp)
+                ) {
+                    Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Filled.Call, null, tint = Color(0xFFD97706))
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text("Not your default phone app yet", fontWeight = FontWeight.SemiBold)
+                            Text("Calls still use the old dialer. Tap to make TF Contacts the default.", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Text("Fix", color = Color(0xFFD97706), fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+            Box(Modifier.weight(1f).fillMaxWidth().consumeWindowInsets(if (!isDefault) WindowInsets.statusBars else WindowInsets(0))) {
             when (tab) {
                 0 -> RecentsTab(vm, onCall, onOpen, onNew)
                 1 -> DialerTab(vm, dialText, onDialText, onCall, onOpen, onNew, onContacts = { onTab(2) }, onTools = onTools)
                 else -> ContactsTab(vm, onOpen, onNew, onCall, onDuplicates, onTools, dupCount)
+            }
             }
         }
     }

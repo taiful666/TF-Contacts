@@ -133,15 +133,25 @@ private fun Root(vm: MainViewModel, incomingDial: MutableStateFlow<String?>) {
     var granted by remember { mutableStateOf(hasContactPerms(ctx)) }
     var askedOnce by remember { mutableStateOf(false) }
 
+    var isDefault by remember { mutableStateOf(CallHelper.isDefaultDialer(ctx)) }
+    var showDefaultHelp by remember { mutableStateOf(false) }
     val roleLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
-        vm.message.value = if (CallHelper.isDefaultDialer(ctx)) "TF Contacts is now your default phone app" else null
+        isDefault = CallHelper.isDefaultDialer(ctx)
+        if (isDefault) vm.message.value = "Done! TF Contacts is now your default phone app. All calls will use it."
+        else showDefaultHelp = true // the phone did not show / accept the request: explain the manual way
     }
     fun askDefaultDialer() {
-        CallHelper.defaultDialerIntent(activity)?.let {
-            try {
-                roleLauncher.launch(it)
-            } catch (_: Exception) {
-            }
+        if (CallHelper.isDefaultDialer(ctx)) {
+            isDefault = true; return
+        }
+        val i = CallHelper.defaultDialerIntent(activity)
+        if (i == null) {
+            showDefaultHelp = true; return
+        }
+        try {
+            roleLauncher.launch(i)
+        } catch (_: Exception) {
+            showDefaultHelp = true
         }
     }
 
@@ -150,16 +160,25 @@ private fun Root(vm: MainViewModel, incomingDial: MutableStateFlow<String?>) {
         askedOnce = true
         if (granted) {
             vm.start()
-            if (!prefs.getBoolean("askedDialer", false) && !CallHelper.isDefaultDialer(ctx)) {
-                prefs.edit().putBoolean("askedDialer", true).apply()
+            if (!prefs.getBoolean("askedDialer2", false) && !CallHelper.isDefaultDialer(ctx)) {
+                prefs.edit().putBoolean("askedDialer2", true).apply()
                 askDefaultDialer()
             }
         }
     }
     LaunchedEffect(Unit) {
-        if (!granted) permLauncher.launch(allPerms) else vm.start()
+        if (!granted) permLauncher.launch(allPerms)
+        else {
+            vm.start()
+            // Ask once after this update if the app is still not the default phone app
+            if (!prefs.getBoolean("askedDialer2", false) && !CallHelper.isDefaultDialer(ctx)) {
+                prefs.edit().putBoolean("askedDialer2", true).apply()
+                askDefaultDialer()
+            }
+        }
     }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        isDefault = CallHelper.isDefaultDialer(ctx)
         val now = hasContactPerms(ctx)
         if (now && !granted) vm.start()
         granted = now
@@ -217,7 +236,9 @@ private fun Root(vm: MainViewModel, incomingDial: MutableStateFlow<String?>) {
             onCall = call,
             onDuplicates = { push(Screen.Duplicates) },
             onTools = { push(Screen.Tools) },
-            dupCount = dups.size
+            dupCount = dups.size,
+            isDefault = isDefault,
+            onMakeDefault = { askDefaultDialer() },
         )
         is Screen.Detail -> DetailScreen(vm, s.id, onBack = pop, onEdit = { push(Screen.Edit(s.id)) }, onCall = call)
         is Screen.Edit -> EditScreen(vm, s.id, s.number, onBack = pop, onSaved = { newId ->
@@ -251,6 +272,44 @@ private fun Root(vm: MainViewModel, incomingDial: MutableStateFlow<String?>) {
             onDismissRequest = { vm.message.value = null },
             confirmButton = { TextButton(onClick = { vm.message.value = null }) { Text("OK") } },
             text = { Text(msg ?: "", fontSize = 16.sp) }
+        )
+    }
+
+    if (showDefaultHelp) {
+        AlertDialog(
+            onDismissRequest = { showDefaultHelp = false },
+            title = { Text("Make TF Contacts your phone app") },
+            text = {
+                Column {
+                    Text("The phone did not switch automatically. Please set it once by hand:", fontSize = 15.sp)
+                    Spacer(Modifier.height(10.dp))
+                    Text("1. Tap \"Open settings\" below", fontSize = 15.sp)
+                    Text("2. Tap \"Phone app\" (or \"Default phone app\")", fontSize = 15.sp)
+                    Text("3. Choose \"TF Contacts\"", fontSize = 15.sp)
+                    Text("4. Come back here", fontSize = 15.sp)
+                    Spacer(Modifier.height(10.dp))
+                    Text(
+                        "If you can't find it: phone Settings → Apps → Default apps → Phone app → TF Contacts",
+                        fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton({
+                    showDefaultHelp = false
+                    val tries = listOf(
+                        Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS),
+                        Intent(Settings.ACTION_SETTINGS)
+                    )
+                    for (t in tries) {
+                        try {
+                            ctx.startActivity(t); break
+                        } catch (_: Exception) {
+                        }
+                    }
+                }) { Text("Open settings") }
+            },
+            dismissButton = { TextButton({ showDefaultHelp = false }) { Text("Later") } }
         )
     }
 
