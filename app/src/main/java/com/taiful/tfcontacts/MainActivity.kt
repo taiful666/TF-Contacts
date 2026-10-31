@@ -106,6 +106,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        vm.checkUpdate() // look for a newer version every time the app is opened
         if (hasContactPerms(this)) vm.start()
     }
 

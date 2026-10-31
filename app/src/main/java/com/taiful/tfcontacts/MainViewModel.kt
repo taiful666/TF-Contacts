@@ -212,7 +212,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         return "$added new contact(s) added" + if (skipped > 0) ", $skipped already existed" else ""
     }
 
+    private var lastUpdateCheck = 0L
     fun checkUpdate() {
+        if (System.currentTimeMillis() - lastUpdateCheck < 60_000) return
+        lastUpdateCheck = System.currentTimeMillis()
         viewModelScope.launch {
             val latest = withContext(Dispatchers.IO) { com.taiful.tfcontacts.cloud.Updates.latestBuild() }
             if (latest != null && latest > com.taiful.tfcontacts.cloud.Updates.installedBuild(ctx)) updateBuild.value = latest

@@ -137,8 +137,8 @@ object Background {
         val net = Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
         val wm = WorkManager.getInstance(c)
         wm.enqueueUniquePeriodicWork(
-            "tf_update_check", ExistingPeriodicWorkPolicy.KEEP,
-            PeriodicWorkRequestBuilder<UpdateWorker>(12, TimeUnit.HOURS).setConstraints(net).build()
+            "tf_update_check6", ExistingPeriodicWorkPolicy.KEEP,
+            PeriodicWorkRequestBuilder<UpdateWorker>(6, TimeUnit.HOURS).setConstraints(net).build()
         )
         wm.enqueueUniquePeriodicWork(
             "tf_drive_backup", ExistingPeriodicWorkPolicy.KEEP,
