@@ -92,6 +92,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.fillMaxHeight
+import com.taiful.tfcontacts.call.CallHelper
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.ui.graphics.SolidColor
@@ -135,10 +138,13 @@ fun HomeScreen(
 ) {
     Scaffold(
         bottomBar = {
-            NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainer) {
-                NavigationBarItem(tab == 0, { onTab(0) }, { Icon(Icons.Filled.History, null) }, label = { Text("History") })
-                NavigationBarItem(tab == 1, { onTab(1) }, { Icon(Icons.Filled.Dialpad, null) }, label = { Text("Keypad") })
-                NavigationBarItem(tab == 2, { onTab(2) }, { Icon(Icons.Filled.Contacts, null) }, label = { Text("Contacts") })
+            // Compact tab bar (takes less space than the standard one)
+            Surface(color = MaterialTheme.colorScheme.surfaceContainer) {
+                Row(Modifier.fillMaxWidth().navigationBarsPadding().height(58.dp), verticalAlignment = Alignment.CenterVertically) {
+                    TabItem(tab == 0, Icons.Filled.History, "History", Modifier.weight(1f)) { onTab(0) }
+                    TabItem(tab == 1, Icons.Filled.Dialpad, "Keypad", Modifier.weight(1f)) { onTab(1) }
+                    TabItem(tab == 2, Icons.Filled.Contacts, "Contacts", Modifier.weight(1f)) { onTab(2) }
+                }
             }
         }
     ) { pad ->
@@ -574,6 +580,8 @@ private fun DialerTab(
     var search by rememberSaveable { mutableStateOf("") }
     var padOpen by rememberSaveable { mutableStateOf(true) }
     val hl = highlightStyle()
+    val sims = remember { CallHelper.simAccounts(ctx) }
+    val simNames = remember(sims) { sims.map { CallHelper.accountLabel(ctx, it) } }
     val listState = rememberLazyListState()
     // Scrolling the list hides the keypad so more contacts are visible (like iPhone / Google Phone)
     LaunchedEffect(listState.isScrollInProgress) {
@@ -700,48 +708,57 @@ private fun DialerTab(
             // keypad panel is clearly different from the list behind it
             val sheet = if (dark) cs.surfaceContainerHigh else cs.surfaceContainerHighest
             val keyBg = if (dark) androidx.compose.ui.graphics.lerp(cs.surfaceContainerHighest, Color.White, 0.06f) else cs.surfaceContainerLowest
+            fun callNow(h: android.telecom.PhoneAccountHandle?) {
+                if (text.isNotEmpty()) {
+                    if (h != null) CallHelper.place(ctx, text, h) else onCall(text)
+                } else calls.firstOrNull { it.type == CallLog.Calls.OUTGOING_TYPE }?.let { onText(it.number) }
+            }
             Surface(
                 color = sheet,
-                shape = RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp),
+                shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
                 shadowElevation = 10.dp,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Column(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    // small handle
-                    Box(Modifier.padding(top = 2.dp).size(width = 36.dp, height = 4.dp).clip(RoundedCornerShape(2.dp)).background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)))
-                    // Number display
-                    Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp).height(46.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Box(Modifier.size(44.dp).clip48().clickable(enabled = text.isNotEmpty()) { onNew(text) }, contentAlignment = Alignment.Center) {
-                            if (text.isNotEmpty()) Icon(Icons.Filled.PersonAdd, "Save contact", tint = MaterialTheme.colorScheme.primary)
-                        }
-                        Text(
-                            text, Modifier.weight(1f), textAlign = TextAlign.Center, maxLines = 1,
-                            fontSize = when { text.length > 16 -> 22.sp; text.length > 12 -> 27.sp; else -> 32.sp },
-                            fontWeight = FontWeight.Medium
-                        )
-                        Box(
-                            Modifier.size(44.dp).clip48()
-                                .combinedClickable(onClick = { if (text.isNotEmpty()) onText(text.dropLast(1)) }, onLongClick = { onText("") }),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            if (text.isNotEmpty()) Icon(Icons.AutoMirrored.Filled.Backspace, "Delete", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Column(Modifier.fillMaxWidth().padding(bottom = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    // Handle: tap to hide the keypad
+                    Box(Modifier.fillMaxWidth().height(16.dp).clickable { padOpen = false }, contentAlignment = Alignment.Center) {
+                        Box(Modifier.size(width = 40.dp, height = 4.dp).clip(RoundedCornerShape(2.dp)).background(cs.onSurfaceVariant.copy(alpha = 0.35f)))
+                    }
+                    // Number display (only takes space once something is typed)
+                    AnimatedVisibility(visible = text.isNotEmpty()) {
+                        Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp).height(44.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Box(Modifier.size(44.dp).clip48().clickable { onNew(text) }, contentAlignment = Alignment.Center) {
+                                Icon(Icons.Filled.PersonAdd, "Save contact", tint = cs.primary)
+                            }
+                            Text(
+                                text, Modifier.weight(1f), textAlign = TextAlign.Center, maxLines = 1,
+                                fontSize = when { text.length > 16 -> 22.sp; text.length > 12 -> 27.sp; else -> 31.sp },
+                                fontWeight = FontWeight.Medium
+                            )
+                            Box(
+                                Modifier.size(44.dp).clip48()
+                                    .combinedClickable(onClick = { onText(text.dropLast(1)) }, onLongClick = { onText("") }),
+                                contentAlignment = Alignment.Center
+                            ) { Icon(Icons.AutoMirrored.Filled.Backspace, "Delete", tint = cs.onSurfaceVariant) }
                         }
                     }
                     padKeys.chunked(3).forEach { row ->
-                        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
+                        Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
                             row.forEach { (k, letters) ->
                                 Box(
-                                    Modifier.padding(vertical = 3.dp).size(width = 100.dp, height = 50.dp)
+                                    Modifier.padding(vertical = 3.dp).size(width = 104.dp, height = 50.dp)
                                         .clip(RoundedCornerShape(25.dp))
                                         .background(keyBg)
                                         .combinedClickable(onClick = { press(k) }, onLongClick = { if (k == "0") press("+") }),
                                     contentAlignment = Alignment.Center
                                 ) {
+                                    // Fixed slots so every digit sits in the same spot (straight columns)
                                     Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Text(k, fontSize = 25.sp, fontWeight = FontWeight.Medium)
-                                        if (letters.isNotEmpty()) {
-                                            Spacer(Modifier.width(6.dp))
-                                            Text(letters, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, letterSpacing = 1.sp)
+                                        Box(Modifier.width(30.dp), contentAlignment = Alignment.Center) {
+                                            Text(k, fontSize = 25.sp, fontWeight = FontWeight.Medium)
+                                        }
+                                        Box(Modifier.width(40.dp).padding(start = 4.dp), contentAlignment = Alignment.CenterStart) {
+                                            Text(letters, fontSize = 10.sp, color = cs.onSurfaceVariant, letterSpacing = 1.sp, maxLines = 1)
                                         }
                                     }
                                 }
@@ -749,21 +766,28 @@ private fun DialerTab(
                         }
                     }
                     Spacer(Modifier.height(6.dp))
-                    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
-                        Box(Modifier.size(width = 100.dp, height = 54.dp).clip(RoundedCornerShape(27.dp)).clickable { padOpen = false }, contentAlignment = Alignment.Center) {
-                            Icon(Icons.Filled.KeyboardArrowDown, "Hide keypad", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(28.dp))
+                    // Call button(s): one per SIM when the phone has two SIMs
+                    if (sims.size >= 2) {
+                        Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
+                            sims.take(2).forEachIndexed { i, h ->
+                                Row(
+                                    Modifier.size(width = 160.dp, height = 52.dp).clip(RoundedCornerShape(26.dp)).background(TFGreen).clickable { callNow(h) },
+                                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center
+                                ) {
+                                    Icon(Icons.Filled.Call, "Call with SIM ${i + 1}", tint = Color.White, modifier = Modifier.size(24.dp))
+                                    Spacer(Modifier.width(8.dp))
+                                    Column {
+                                        Text("SIM ${i + 1}", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp, lineHeight = 16.sp)
+                                        Text(simNames.getOrElse(i) { "" }, color = Color.White.copy(alpha = 0.85f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, lineHeight = 12.sp, modifier = Modifier.width(90.dp))
+                                    }
+                                }
+                            }
                         }
+                    } else {
                         Box(
-                            Modifier.size(width = 100.dp, height = 54.dp)
-                                .clip(RoundedCornerShape(27.dp))
-                                .background(TFGreen)
-                                .clickable {
-                                    if (text.isNotEmpty()) onCall(text)
-                                    else calls.firstOrNull { it.type == CallLog.Calls.OUTGOING_TYPE }?.let { onText(it.number) }
-                                },
+                            Modifier.size(width = 160.dp, height = 52.dp).clip(RoundedCornerShape(26.dp)).background(TFGreen).clickable { callNow(null) },
                             contentAlignment = Alignment.Center
                         ) { Icon(Icons.Filled.Call, "Call", tint = Color.White, modifier = Modifier.size(28.dp)) }
-                        Spacer(Modifier.size(width = 100.dp, height = 54.dp))
                     }
                 }
             }
@@ -792,3 +816,20 @@ private fun PickRow(
 }
 
 private fun Modifier.clip48() = this.clip(CircleShape)
+
+
+@Composable
+private fun TabItem(selected: Boolean, icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, modifier: Modifier, onClick: () -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    Column(
+        modifier.fillMaxHeight().clickable(onClick = onClick),
+        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center
+    ) {
+        Box(
+            Modifier.size(width = 56.dp, height = 28.dp).clip(RoundedCornerShape(14.dp))
+                .background(if (selected) cs.primaryContainer else Color.Transparent),
+            contentAlignment = Alignment.Center
+        ) { Icon(icon, label, tint = if (selected) cs.onPrimaryContainer else cs.onSurfaceVariant, modifier = Modifier.size(22.dp)) }
+        Text(label, fontSize = 11.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal, color = if (selected) cs.onSurface else cs.onSurfaceVariant)
+    }
+}
