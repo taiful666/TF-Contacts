@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.TFContacts" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/tf_bg</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+    <color name="tf_bg">#0B1430</color>
+    <color name="tf_icon_bg">#0B1430</color>
+</resources>
