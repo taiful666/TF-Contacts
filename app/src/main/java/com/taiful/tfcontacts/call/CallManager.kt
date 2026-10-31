@@ -22,10 +22,7 @@ object CallManager {
 
     private fun changed() {
         version.value = version.value + 1
-        service?.let {
-            CallNotifier.update(it)
-            CallRecorder.onCallsChanged(it)
-        }
+        service?.let { CallNotifier.update(it) }
     }
 
     fun add(call: Call) {

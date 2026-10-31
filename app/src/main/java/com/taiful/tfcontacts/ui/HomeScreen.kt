@@ -696,8 +696,10 @@ private fun DialerTab(
             exit = slideOutVertically { it } + fadeOut()
         ) {
             val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
-            val sheet = if (dark) Color(0xFF1E2C58) else Color(0xFFE3E9F7)
-            val keyBg = if (dark) Color(0xFF2E3F75) else Color.White
+            val cs = MaterialTheme.colorScheme
+            // keypad panel is clearly different from the list behind it
+            val sheet = if (dark) cs.surfaceContainerHigh else cs.surfaceContainerHighest
+            val keyBg = if (dark) androidx.compose.ui.graphics.lerp(cs.surfaceContainerHighest, Color.White, 0.06f) else cs.surfaceContainerLowest
             Surface(
                 color = sheet,
                 shape = RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp),

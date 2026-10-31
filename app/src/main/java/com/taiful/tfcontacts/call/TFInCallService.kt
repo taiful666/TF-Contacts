@@ -16,7 +16,6 @@ class TFInCallService : InCallService() {
     override fun onDestroy() {
         if (CallManager.service === this) CallManager.service = null
         CallNotifier.cancelAll(this)
-        CallRecorder.stop()
         super.onDestroy()
     }
 
@@ -31,7 +30,17 @@ class TFInCallService : InCallService() {
             } catch (_: Exception) {
             }
         }
-        // Incoming calls are shown through the full-screen notification (see CallNotifier)
+        // Incoming calls: always a notification (needed on the lock screen); if the user chose
+        // "full screen" in Settings, the call screen also opens straight away.
+        else {
+            com.taiful.tfcontacts.ui.ThemePrefs.load(this)
+            if (com.taiful.tfcontacts.ui.ThemePrefs.fullScreenIncoming.value) {
+                try {
+                    startActivity(Intent(this, InCallActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                } catch (_: Exception) {
+                }
+            }
+        }
     }
 
     override fun onCallRemoved(call: Call) {

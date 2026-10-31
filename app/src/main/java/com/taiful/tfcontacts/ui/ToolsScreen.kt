@@ -14,6 +14,19 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.RadioButton
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -31,11 +44,7 @@ import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.CallMerge
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.FiberManualRecord
-import androidx.compose.material.icons.filled.LibraryMusic
-import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material3.Switch
-import com.taiful.tfcontacts.call.CallRecorder
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.TableChart
 import androidx.compose.material.icons.filled.PhoneAndroid
@@ -75,7 +84,7 @@ import com.taiful.tfcontacts.data.CallLogRepo
 import com.taiful.tfcontacts.data.SourceKind
 
 @Composable
-fun ToolsScreen(vm: MainViewModel, onBack: () -> Unit, onDuplicates: () -> Unit, onMakeDefault: () -> Unit, onRecordings: () -> Unit = {}) {
+fun ToolsScreen(vm: MainViewModel, onBack: () -> Unit, onDuplicates: () -> Unit, onMakeDefault: () -> Unit) {
     val ctx = LocalContext.current
     val all by vm.contacts.collectAsState()
     val dups by vm.duplicates.collectAsState()
@@ -144,17 +153,6 @@ fun ToolsScreen(vm: MainViewModel, onBack: () -> Unit, onDuplicates: () -> Unit,
         }
     }
 
-    // ---- Call recording
-    val a11yOn = remember(refresh) { CallRecorder.accessibilityOn(ctx) }
-    var autoRec by remember { mutableStateOf(CallRecorder.autoOn(ctx)) }
-    val recCount = remember(refresh) { CallRecorder.list(ctx).size }
-    val micLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
-        if (ok) { CallRecorder.setAuto(ctx, true); autoRec = true }
-    }
-    fun openA11y() {
-        try { ctx.startActivity(android.content.Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS)) } catch (_: Exception) {}
-    }
-
     val simContacts = all.filter { SourceKind.SIM in it.kinds }
 
     Scaffold(topBar = {
@@ -176,6 +174,9 @@ fun ToolsScreen(vm: MainViewModel, onBack: () -> Unit, onDuplicates: () -> Unit,
                 }
             }
 
+            Header("Appearance")
+            AppearanceCard()
+
             Header("Phone app")
             Tool(
                 if (isDefault) Icons.Filled.Verified else Icons.Filled.PhoneAndroid,
@@ -183,29 +184,6 @@ fun ToolsScreen(vm: MainViewModel, onBack: () -> Unit, onDuplicates: () -> Unit,
                 if (isDefault) "All calls use this app's dial pad and call screen. To switch back: phone Settings → Apps → Default apps → Phone app"
                 else "Tap and choose 'TF Contacts' so its dial pad and call screen are always used."
             ) { if (!isDefault) onMakeDefault() }
-
-            Header("Call recording")
-            Tool(
-                if (a11yOn) Icons.Filled.Verified else Icons.Filled.Mic,
-                if (a11yOn) "Call recording is switched on ✓" else "Switch on call recording (one time)",
-                if (a11yOn) "Tap Record on the call screen to start/stop. No beep, nothing is announced."
-                else "Android needs one switch: tap here → find \"TF Contacts call recorder\" (maybe under \"Downloaded apps\") → turn it ON → Allow."
-            ) { openA11y() }
-            Surface(color = MaterialTheme.colorScheme.surfaceContainer, shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-                Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Filled.FiberManualRecord, null, tint = MaterialTheme.colorScheme.error)
-                    Spacer(Modifier.width(14.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text("Auto-record every call", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
-                        Text("Starts recording by itself when a call connects.", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    Switch(autoRec, { on ->
-                        if (on && !CallRecorder.hasMicPermission(ctx)) micLauncher.launch(android.Manifest.permission.RECORD_AUDIO)
-                        else { CallRecorder.setAuto(ctx, on); autoRec = on }
-                    })
-                }
-            }
-            Tool(Icons.Filled.LibraryMusic, "Recordings ($recCount)", "Listen, share or delete recorded calls.") { onRecordings() }
 
             Header("Clean up")
             Tool(Icons.Filled.CallMerge, "Find & merge duplicates", if (dups.isEmpty()) "No duplicates right now" else "${dups.size} duplicate group(s) found", onDuplicates)
@@ -344,6 +322,59 @@ private fun Tool(icon: ImageVector, title: String, sub: String, onClick: () -> U
                 Text(title, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
                 Text(sub, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
+        }
+    }
+}
+
+
+@Composable
+private fun AppearanceCard() {
+    val ctx = LocalContext.current
+    val theme by ThemePrefs.theme.collectAsState()
+    val mode by ThemePrefs.mode.collectAsState()
+    val full by ThemePrefs.fullScreenIncoming.collectAsState()
+    Surface(color = MaterialTheme.colorScheme.surfaceContainer, shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+        Column(Modifier.padding(16.dp)) {
+            Text("Theme colour", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+            Spacer(Modifier.height(10.dp))
+            AppTheme.entries.chunked(4).forEach { row ->
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                    row.forEach { t ->
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.width(76.dp).clip(RoundedCornerShape(12.dp)).clickable { ThemePrefs.setTheme(ctx, t) }.padding(vertical = 6.dp)
+                        ) {
+                            Box(
+                                Modifier.size(42.dp).clip(CircleShape)
+                                    .background(Brush.linearGradient(listOf(t.accent, t.seed)))
+                                    .border(if (t == theme) 3.dp else 0.dp, MaterialTheme.colorScheme.onSurface, CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) { if (t == theme) Icon(Icons.Filled.Check, null, tint = Color.White) }
+                            Spacer(Modifier.height(4.dp))
+                            Text(t.label, fontSize = 11.sp, maxLines = 1)
+                        }
+                    }
+                }
+            }
+            Spacer(Modifier.height(14.dp))
+            Text("Mode", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+            Spacer(Modifier.height(6.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ThemeMode.entries.forEach { m ->
+                    FilterChip(selected = mode == m, onClick = { ThemePrefs.setMode(ctx, m) }, label = { Text(if (m == ThemeMode.AUTO) "Auto (follow phone)" else m.label) })
+                }
+            }
+            Spacer(Modifier.height(14.dp))
+            Text("When a call comes in", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+            Row(Modifier.fillMaxWidth().clickable { ThemePrefs.setFullScreenIncoming(ctx, false) }, verticalAlignment = Alignment.CenterVertically) {
+                RadioButton(!full, { ThemePrefs.setFullScreenIncoming(ctx, false) })
+                Column { Text("Small banner at the top"); Text("Answer or decline from the banner", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            }
+            Row(Modifier.fillMaxWidth().clickable { ThemePrefs.setFullScreenIncoming(ctx, true) }, verticalAlignment = Alignment.CenterVertically) {
+                RadioButton(full, { ThemePrefs.setFullScreenIncoming(ctx, true) })
+                Column { Text("Full screen"); Text("The whole call screen opens, even while using the phone", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            }
+            Text("When the phone is locked, the full call screen always shows.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
         }
     }
 }

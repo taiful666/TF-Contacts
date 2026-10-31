@@ -37,7 +37,6 @@ import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.CallEnd
 import androidx.compose.material.icons.filled.Dialpad
-import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MicOff
 import androidx.compose.material.icons.filled.Pause
@@ -97,8 +96,9 @@ class InCallActivity : ComponentActivity() {
         }
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         enableEdgeToEdge()
+        com.taiful.tfcontacts.ui.ThemePrefs.load(this)
         handleAnswer(intent)
-        setContent { TFTheme(dark = true) { CallScreen(onFinish = { finishAndRemoveTask() }, onProximity = ::setProximity) } }
+        setContent { TFTheme(forceDark = true) { CallScreen(onFinish = { finishAndRemoveTask() }, onProximity = ::setProximity) } }
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -152,6 +152,7 @@ private fun CallScreen(onFinish: () -> Unit, onProximity: (Boolean) -> Unit) {
     val calls by CallManager.calls.collectAsState()
     val version by CallManager.version.collectAsState()
     val audio by CallManager.audio.collectAsState()
+    val theme by com.taiful.tfcontacts.ui.ThemePrefs.theme.collectAsState()
     val call = remember(calls, version) { CallManager.primary() }
     var ended by remember { mutableStateOf(false) }
 
@@ -173,7 +174,11 @@ private fun CallScreen(onFinish: () -> Unit, onProximity: (Boolean) -> Unit) {
     Box(
         Modifier
             .fillMaxSize()
-            .background(Brush.verticalGradient(listOf(Color(0xFF14245A), Color(0xFF0B1430), Color(0xFF070D20))))
+            .background(Brush.verticalGradient(listOf(
+                androidx.compose.ui.graphics.lerp(theme.seed, Color.Black, 0.15f),
+                androidx.compose.ui.graphics.lerp(theme.seed, Color.Black, 0.55f),
+                androidx.compose.ui.graphics.lerp(theme.seed, Color.Black, 0.82f)
+            )))
             .safeDrawingPadding()
     ) {
         if (call == null || ended) {
@@ -338,7 +343,6 @@ private fun ActiveCall(call: Call, state: Int, calls: List<Call>, audio: CallAud
                 SmallToggle(if (holding) Icons.Filled.PlayArrow else Icons.Filled.Pause, if (holding) "Resume" else "Hold", holding) {
                     if (holding) call.unhold() else call.hold()
                 }
-                RecordToggle(call)
                 if (btAvailable) {
                     SmallToggle(Icons.Filled.Bluetooth, "Bluetooth", bt) {
                         CallManager.setRoute(if (bt) CallAudioState.ROUTE_WIRED_OR_EARPIECE else CallAudioState.ROUTE_BLUETOOTH)
@@ -350,57 +354,6 @@ private fun ActiveCall(call: Call, state: Int, calls: List<Call>, audio: CallAud
                 BigRound(Icons.Filled.CallEnd, TFRed, "Call ended") { CallManager.hangup(call) }
             }
         }
-    }
-}
-
-@Composable
-private fun RecordToggle(call: Call) {
-    val ctx = androidx.compose.ui.platform.LocalContext.current
-    val recording by CallRecorder.recording.collectAsState()
-    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
-    LaunchedEffect(recording) { while (recording) { now = System.currentTimeMillis(); delay(1000) } }
-    var help by remember { mutableStateOf(false) }
-    val micLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
-        androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
-    ) { ok -> if (ok) CallRecorder.toggle(ctx, call.number()) }
-
-    val label = if (recording) "● " + durationText(((now - CallRecorder.startedAt) / 1000).coerceAtLeast(0)).ifEmpty { "0:00" } else "Record"
-    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(88.dp)) {
-        Box(
-            Modifier.size(62.dp)
-                .background(if (recording) TFRed else Color(0x22FFFFFF), CircleShape)
-                .clickable {
-                    when {
-                        recording -> CallRecorder.toggle(ctx, call.number())
-                        !CallRecorder.accessibilityOn(ctx) -> help = true
-                        !CallRecorder.hasMicPermission(ctx) -> micLauncher.launch(android.Manifest.permission.RECORD_AUDIO)
-                        else -> if (!CallRecorder.toggle(ctx, call.number())) help = true
-                    }
-                },
-            contentAlignment = Alignment.Center
-        ) { Icon(Icons.Filled.FiberManualRecord, "Record", tint = if (recording) Color.White else Color(0xFFFF5470), modifier = Modifier.size(26.dp)) }
-        Spacer(Modifier.height(6.dp))
-        Text(label, color = if (recording) Color(0xFFFF8FA3) else Color(0xFFDDE3F2), fontSize = 12.sp, maxLines = 1)
-    }
-    if (help) {
-        androidx.compose.material3.AlertDialog(
-            onDismissRequest = { help = false },
-            title = { Text("Turn on call recording") },
-            text = {
-                Text(
-                    "Android only allows call recording after a one-time switch:\n\n" +
-                        "1. Tap \"Open settings\"\n2. Find \"TF Contacts call recorder\" (maybe under \"Downloaded apps\" or \"Installed services\")\n" +
-                        "3. Turn it ON and tap Allow\n4. Come back and tap Record"
-                )
-            },
-            confirmButton = {
-                TextButton({
-                    help = false
-                    try { ctx.startActivity(android.content.Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) } catch (_: Exception) {}
-                }) { Text("Open settings") }
-            },
-            dismissButton = { TextButton({ help = false }) { Text("Cancel") } }
-        )
     }
 }
 

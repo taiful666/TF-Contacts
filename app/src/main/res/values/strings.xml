@@ -1,5 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <string name="a11y_label">TF Contacts call recorder</string>
-    <string name="a11y_desc">Lets TF Contacts record phone calls when you tap Record (or when auto-record is on). It does not read your screen or what you type. Recordings stay on this phone.</string>
-</resources>
