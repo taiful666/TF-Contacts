@@ -55,6 +55,9 @@ jobs:
           keytool -list -keystore "$KS" -storetype PKCS12 -storepass "$PASS" -alias tfcontacts > /dev/null \
             || { echo "::error::TF_KEY_PASSWORD does not open signing/tf-contacts.p12"; exit 1; }
           echo "TF_KEYSTORE=$GITHUB_WORKSPACE/$KS" >> "$GITHUB_ENV"
+          # Fingerprint of the signing key (public, not secret) - needed for Google sign-in setup
+          SHA1=$(keytool -list -v -keystore "$KS" -storetype PKCS12 -storepass "$PASS" -alias tfcontacts | grep -m1 "SHA1:" | awk '{print $2}')
+          echo "::notice title=Signing key SHA-1::$SHA1"
 
       - name: Build the APK
         env:

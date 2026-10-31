@@ -150,6 +150,44 @@ object CallLogRepo {
         }
     }
 
+    /** Whole history as JSON (used for the Google Drive backup). */
+    fun exportJson(context: Context): String {
+        val arr = org.json.JSONArray()
+        db(context).rawQuery("SELECT number, name, type, date, duration, account FROM calls ORDER BY date DESC", null).use { c ->
+            while (c.moveToNext()) {
+                arr.put(org.json.JSONObject().apply {
+                    put("n", c.getString(0) ?: ""); put("nm", c.getString(1) ?: ""); put("t", c.getInt(2))
+                    put("d", c.getLong(3)); put("du", c.getLong(4)); put("a", c.getString(5) ?: "")
+                })
+            }
+        }
+        return arr.toString()
+    }
+
+    /** Adds calls from a backup. Calls already in the history are skipped. Returns how many were added. */
+    @Synchronized
+    fun importJson(context: Context, text: String): Int {
+        val arr = try { org.json.JSONArray(text) } catch (_: Exception) { return 0 }
+        val w = db(context)
+        var added = 0
+        w.beginTransaction()
+        try {
+            for (i in 0 until arr.length()) {
+                val o = arr.optJSONObject(i) ?: continue
+                val v = ContentValues().apply {
+                    put("number", o.optString("n")); put("name", o.optString("nm").ifEmpty { null })
+                    put("type", o.optInt("t")); put("date", o.optLong("d")); put("duration", o.optLong("du"))
+                    put("account", o.optString("a").ifEmpty { null })
+                }
+                if (w.insertWithOnConflict("calls", null, v, SQLiteDatabase.CONFLICT_IGNORE) != -1L) added++
+            }
+            w.setTransactionSuccessful()
+        } finally {
+            w.endTransaction()
+        }
+        return added
+    }
+
     /** Writes the whole history as a CSV file (opens in Excel). */
     fun exportCsv(context: Context, out: java.io.OutputStream) {
         val fmt = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US)

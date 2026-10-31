@@ -38,6 +38,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     /** One-time messages shown at the bottom of the screen. */
     val message = MutableStateFlow<String?>(null)
 
+    /** Newer build number available on GitHub (null = up to date / unknown). */
+    val updateBuild = MutableStateFlow<Long?>(null)
+    /** Changes whenever the Google Drive backup state changes, so the screen can refresh. */
+    val driveTick = MutableStateFlow(0)
+
     private val ctx get() = getApplication<Application>()
     private var reloadJob: Job? = null
     private var observing = false
@@ -205,6 +210,62 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val existing = ContactRepository.loadAll(ctx)
         val (added, skipped) = ContactWriter.importEntries(ctx, entries, existing)
         return "$added new contact(s) added" + if (skipped > 0) ", $skipped already existed" else ""
+    }
+
+    fun checkUpdate() {
+        viewModelScope.launch {
+            val latest = withContext(Dispatchers.IO) { com.taiful.tfcontacts.cloud.Updates.latestBuild() }
+            if (latest != null && latest > com.taiful.tfcontacts.cloud.Updates.installedBuild(ctx)) updateBuild.value = latest
+        }
+    }
+
+    private fun driveError(e: Exception): String =
+        if (e is com.taiful.tfcontacts.cloud.DriveBackup.NeedsSignIn) "Please connect your Gmail again (Settings → Google Drive backup)."
+        else "Google Drive: ${e.message ?: "something went wrong"}. Check the internet connection and try again."
+
+    /** Called after the user picked a Gmail account and agreed. Restores an existing backup, then backs up. */
+    fun driveConnected(token: String) = job("Connecting to Google Drive…") {
+        val D = com.taiful.tfcontacts.cloud.DriveBackup
+        val email = D.whoAmI(token) ?: return@job "Could not read the Google account. Please try again."
+        D.setEmail(ctx, email)
+        driveTick.value++
+        val sb = StringBuilder("Connected: $email\n\n")
+        try {
+            val info = D.remoteInfo(token)
+            if (info != null) {
+                busy.value = "Found a backup on Drive — bringing it back…"
+                sb.append(D.restore(ctx, token)).append("\n\n")
+            }
+            busy.value = "Backing up to Google Drive…"
+            sb.append(D.backup(ctx, token))
+            sb.append("\n\nFrom now on a backup is made automatically every day.")
+        } catch (e: Exception) {
+            sb.append(driveError(e))
+        }
+        driveTick.value++
+        sb.toString()
+    }
+
+    fun driveBackupNow() = job("Backing up to Google Drive…") {
+        try {
+            com.taiful.tfcontacts.cloud.DriveBackup.backup(ctx)
+        } catch (e: Exception) {
+            driveError(e)
+        }.also { driveTick.value++ }
+    }
+
+    fun driveRestore() = job("Restoring from Google Drive…") {
+        try {
+            com.taiful.tfcontacts.cloud.DriveBackup.restore(ctx)
+        } catch (e: Exception) {
+            driveError(e)
+        }
+    }
+
+    fun driveRemove() {
+        com.taiful.tfcontacts.cloud.DriveBackup.setEmail(ctx, null)
+        driveTick.value++
+        message.value = "Gmail removed. Backups now stay only on this phone. (Your old backup on Google Drive was not deleted.)"
     }
 
     fun exportCalls(uri: Uri) = job("Exporting call history…") {

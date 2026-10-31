@@ -79,15 +79,19 @@ class MainActivity : ComponentActivity() {
     private val vm: MainViewModel by viewModels()
     /** Number sent by another app ("dial this number"). */
     private val incomingDial = MutableStateFlow<String?>(null)
+    private val openTools = MutableStateFlow(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         readDialIntent(intent)
+        com.taiful.tfcontacts.cloud.Background.schedule(this)
+        vm.checkUpdate()
+        if (intent?.getBooleanExtra("openTools", false) == true) openTools.value = true
         setContent {
             TFTheme {
                 Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                    Root(vm, incomingDial)
+                    Root(vm, incomingDial, openTools)
                 }
             }
         }
@@ -96,6 +100,7 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         readDialIntent(intent)
+        if (intent.getBooleanExtra("openTools", false)) openTools.value = true
     }
 
     override fun onResume() {
@@ -126,7 +131,7 @@ private val allPerms: Array<String> = buildList {
 }.toTypedArray()
 
 @Composable
-private fun Root(vm: MainViewModel, incomingDial: MutableStateFlow<String?>) {
+private fun Root(vm: MainViewModel, incomingDial: MutableStateFlow<String?>, openTools: MutableStateFlow<Boolean>) {
     val ctx = LocalContext.current
     val activity = ctx as ComponentActivity
     val prefs = remember { ctx.getSharedPreferences("tf", Context.MODE_PRIVATE) }
@@ -206,6 +211,15 @@ private fun Root(vm: MainViewModel, incomingDial: MutableStateFlow<String?>) {
         }
     }
 
+    val toolsReq by openTools.collectAsState()
+    LaunchedEffect(toolsReq) {
+        if (toolsReq) {
+            if (stack.lastOrNull() != Screen.Tools) stack.add(Screen.Tools)
+            openTools.value = false
+        }
+    }
+    val updateBuild by vm.updateBuild.collectAsState()
+
     // First run: once contacts are loaded, open the duplicate cleaner if anything was found
     val loaded by vm.loaded.collectAsState()
     val dups by vm.duplicates.collectAsState()
@@ -239,6 +253,8 @@ private fun Root(vm: MainViewModel, incomingDial: MutableStateFlow<String?>) {
             dupCount = dups.size,
             isDefault = isDefault,
             onMakeDefault = { askDefaultDialer() },
+            updateBuild = updateBuild,
+            onUpdate = { com.taiful.tfcontacts.cloud.Updates.openDownload(ctx) },
         )
         is Screen.Detail -> DetailScreen(vm, s.id, onBack = pop, onEdit = { push(Screen.Edit(s.id)) }, onCall = call)
         is Screen.Edit -> EditScreen(vm, s.id, s.number, onBack = pop, onSaved = { newId ->

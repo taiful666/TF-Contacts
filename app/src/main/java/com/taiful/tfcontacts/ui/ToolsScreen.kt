@@ -2,6 +2,16 @@
 
 package com.taiful.tfcontacts.ui
 
+import android.app.Activity
+import androidx.activity.result.IntentSenderRequest
+import androidx.compose.material.icons.filled.CloudDone
+import androidx.compose.material.icons.filled.CloudUpload
+import androidx.compose.runtime.rememberCoroutineScope
+import com.google.android.gms.auth.api.identity.Identity
+import com.google.android.gms.common.api.ApiException
+import com.taiful.tfcontacts.cloud.DriveBackup
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
@@ -93,6 +103,42 @@ fun ToolsScreen(vm: MainViewModel, onBack: () -> Unit, onDuplicates: () -> Unit,
         if (uri != null) vm.exportCalls(uri)
     }
 
+    // ---- Google Drive backup (optional)
+    val driveTick by vm.driveTick.collectAsState()
+    val email = remember(driveTick, refresh, busy) { DriveBackup.email(ctx) }
+    val lastDrive = remember(driveTick, refresh, busy) { DriveBackup.lastBackup(ctx) }
+    val driveErr = remember(driveTick, refresh, busy) { DriveBackup.lastError(ctx) }
+    val scope = rememberCoroutineScope()
+    var confirmRemove by remember { mutableStateOf(false) }
+    fun setupMessage(e: Exception): String {
+        val code = (e as? ApiException)?.statusCode
+        return if (code == 10) "Google sign-in is not switched on for this app yet (error 10). Please send this message to Claude."
+        else "Could not connect to Google: ${e.message ?: "unknown error"}. Check the internet and try again."
+    }
+    val authLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { res ->
+        if (res.resultCode == Activity.RESULT_OK) {
+            try {
+                val r = Identity.getAuthorizationClient(ctx).getAuthorizationResultFromIntent(res.data)
+                val t = r.accessToken
+                if (t != null) vm.driveConnected(t) else vm.message.value = "Google did not give access. Please try again."
+            } catch (e: Exception) {
+                vm.message.value = setupMessage(e)
+            }
+        }
+    }
+    fun connectDrive() {
+        scope.launch {
+            try {
+                val r = Identity.getAuthorizationClient(ctx as Activity).authorize(DriveBackup.request(null)).await()
+                val pi = r.pendingIntent
+                if (r.hasResolution() && pi != null) authLauncher.launch(IntentSenderRequest.Builder(pi.intentSender).build())
+                else r.accessToken?.let { vm.driveConnected(it) }
+            } catch (e: Exception) {
+                vm.message.value = setupMessage(e)
+            }
+        }
+    }
+
     val simContacts = all.filter { SourceKind.SIM in it.kinds }
 
     Scaffold(topBar = {
@@ -159,6 +205,42 @@ fun ToolsScreen(vm: MainViewModel, onBack: () -> Unit, onDuplicates: () -> Unit,
                 }
             }
 
+            Header("Google Drive backup (optional)")
+            if (email == null) {
+                Tool(
+                    Icons.Filled.CloudUpload, "Add Gmail for backup",
+                    "Not required. If you add a Gmail, your contacts and call history are also backed up every day to your own Google Drive. On a new phone, add the same Gmail and everything comes back automatically."
+                ) { connectDrive() }
+            } else {
+                Surface(color = MaterialTheme.colorScheme.surfaceContainer, shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                    Column(Modifier.padding(16.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Filled.CloudDone, null, tint = MaterialTheme.colorScheme.primary)
+                            Spacer(Modifier.width(12.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(email, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                                Text(
+                                    if (lastDrive > 0) "Last backup: " + relativeTime(lastDrive) else "No backup yet",
+                                    fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        if (driveErr != null) {
+                            Spacer(Modifier.height(8.dp))
+                            Text(driveErr, color = MaterialTheme.colorScheme.error, fontSize = 13.sp)
+                            TextButton({ connectDrive() }) { Text("Connect again") }
+                        }
+                        Spacer(Modifier.height(6.dp))
+                        Text("Backs up automatically once a day when there is internet.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Row {
+                            TextButton({ vm.driveBackupNow() }) { Text("Back up now") }
+                            TextButton({ vm.driveRestore() }) { Text("Restore") }
+                            TextButton({ confirmRemove = true }) { Text("Remove", color = MaterialTheme.colorScheme.error) }
+                        }
+                    }
+                }
+            }
+
             Header("Call history")
             val callCount = remember(refresh, busy) { CallLogRepo.totalCount(ctx) }
             Tool(
@@ -172,10 +254,20 @@ fun ToolsScreen(vm: MainViewModel, onBack: () -> Unit, onDuplicates: () -> Unit,
             Header("Privacy")
             Tool(
                 Icons.Filled.CloudOff, "Fully offline",
-                "This app has no internet permission at all. Contacts and call history never leave your phone. (If Google account sync is on in phone settings, the phone itself syncs Google contacts — not this app.)"
+                "The app uses the internet only to check for updates and, if you added a Gmail, to back up to YOUR own Google Drive (a private app folder only TF Contacts can see). Without a Gmail, contacts and call history never leave your phone."
             ) {}
             Spacer(Modifier.height(40.dp))
         }
+    }
+
+    if (confirmRemove) {
+        AlertDialog(
+            onDismissRequest = { confirmRemove = false },
+            title = { Text("Remove Gmail?") },
+            text = { Text("Backups will stay only on this phone. The backup already on Google Drive is not deleted.") },
+            confirmButton = { TextButton({ confirmRemove = false; vm.driveRemove() }) { Text("Remove", color = MaterialTheme.colorScheme.error) } },
+            dismissButton = { TextButton({ confirmRemove = false }) { Text("Cancel") } }
+        )
     }
 
     if (simAll) {

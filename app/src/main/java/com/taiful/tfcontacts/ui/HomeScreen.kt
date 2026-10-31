@@ -51,6 +51,7 @@ import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
@@ -120,6 +121,8 @@ fun HomeScreen(
     dupCount: Int,
     isDefault: Boolean = true,
     onMakeDefault: () -> Unit = {},
+    updateBuild: Long? = null,
+    onUpdate: () -> Unit = {},
 ) {
     Scaffold(
         bottomBar = {
@@ -146,6 +149,23 @@ fun HomeScreen(
                             Text("Calls still use the old dialer. Tap to make TF Contacts the default.", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Text("Fix", color = Color(0xFFD97706), fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+            if (updateBuild != null) {
+                Surface(
+                    onClick = onUpdate,
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 12.dp, vertical = 6.dp)
+                ) {
+                    Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Filled.SystemUpdate, null, tint = MaterialTheme.colorScheme.primary)
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text("Update available (build $updateBuild)", fontWeight = FontWeight.SemiBold)
+                            Text("Tap to download, then open the file and tap Update.", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                     }
                 }
             }
