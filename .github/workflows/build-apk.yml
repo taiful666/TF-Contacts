@@ -23,9 +23,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 17
@@ -61,7 +61,12 @@ jobs:
           TF_KEY_PASSWORD: ${{ secrets.TF_KEY_PASSWORD }}
         run: |
           chmod +x gradlew
-          ./gradlew assembleRelease -Pvc=${{ github.run_number }} --no-daemon --stacktrace
+          set -o pipefail
+          if ! ./gradlew assembleRelease -Pvc=${{ github.run_number }} --no-daemon 2>&1 | tee build.log; then
+            # Show the compiler errors at the top of the run page
+            grep -E "^e: |What went wrong|error:" build.log | head -40 | while IFS= read -r l; do echo "::error::$l"; done
+            exit 1
+          fi
           ls -la app/build/outputs/apk/release/
           if [ -z "$NO_KEY" ]; then cp app/build/outputs/apk/release/app-release.apk TF-Contacts.apk; fi
 
