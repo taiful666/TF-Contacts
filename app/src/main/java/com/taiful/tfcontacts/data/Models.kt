@@ -5,12 +5,12 @@ import android.provider.ContactsContract.CommonDataKinds.Phone as CPhone
 data class PhoneNum(val number: String, val type: Int = CPhone.TYPE_MOBILE, val label: String? = null) {
     val key: String get() = Normalize.phoneKey(number)
     fun typeLabel(): String = when (type) {
-        CPhone.TYPE_MOBILE -> "মোবাইল"
-        CPhone.TYPE_HOME -> "বাসা"
-        CPhone.TYPE_WORK -> "অফিস"
-        CPhone.TYPE_MAIN -> "প্রধান"
-        CPhone.TYPE_CUSTOM -> label?.takeIf { it.isNotBlank() } ?: "অন্যান্য"
-        else -> "অন্যান্য"
+        CPhone.TYPE_MOBILE -> "Mobile"
+        CPhone.TYPE_HOME -> "Home"
+        CPhone.TYPE_WORK -> "Work"
+        CPhone.TYPE_MAIN -> "Main"
+        CPhone.TYPE_CUSTOM -> label?.takeIf { it.isNotBlank() } ?: "Other"
+        else -> "Other"
     }
 }
 
@@ -30,10 +30,10 @@ data class RawInfo(val rawId: Long, val accountType: String?, val accountName: S
 
     val label: String
         get() = when (kind) {
-            SourceKind.PHONE -> "ফোন"
+            SourceKind.PHONE -> "Phone"
             SourceKind.SIM -> accountName?.takeIf { it.isNotBlank() }?.let { if (it.contains("sim", true)) it.uppercase() else "SIM ($it)" } ?: "SIM"
             SourceKind.GOOGLE -> "Google"
-            SourceKind.OTHER -> accountName ?: accountType ?: "অন্যান্য"
+            SourceKind.OTHER -> accountName ?: accountType ?: "Other"
         }
 }
 
@@ -72,7 +72,7 @@ data class Contact(
 
     val kinds: Set<SourceKind> get() = raws.map { it.kind }.toSet()
     val isSimOnly: Boolean get() = raws.isNotEmpty() && raws.all { it.kind == SourceKind.SIM }
-    val sourceLabel: String get() = raws.map { it.label }.distinct().joinToString(" + ").ifBlank { "ফোন" }
+    val sourceLabel: String get() = raws.map { it.label }.distinct().joinToString(" + ").ifBlank { "Phone" }
 
     /** Rough amount of information, used to pick which copy to keep when merging. */
     val richness: Int

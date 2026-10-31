@@ -136,10 +136,10 @@ fun relativeTime(ms: Long): String {
     val today = cal.apply { set(java.util.Calendar.HOUR_OF_DAY, 0); set(java.util.Calendar.MINUTE, 0); set(java.util.Calendar.SECOND, 0) }.timeInMillis
     val time = java.text.SimpleDateFormat("hh:mm a", java.util.Locale.getDefault()).format(java.util.Date(ms))
     return when {
-        min < 1 -> "এইমাত্র"
-        min < 60 -> "$min মিনিট আগে"
-        ms >= today -> "আজ $time"
-        ms >= today - 86400000L -> "গতকাল $time"
+        min < 1 -> "Just now"
+        min < 60 -> "$min min ago"
+        ms >= today -> "Today $time"
+        ms >= today - 86400000L -> "Yesterday $time"
         else -> java.text.SimpleDateFormat("dd MMM, hh:mm a", java.util.Locale.getDefault()).format(java.util.Date(ms))
     }
 }

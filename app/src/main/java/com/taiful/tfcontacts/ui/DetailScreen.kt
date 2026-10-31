@@ -76,7 +76,7 @@ import com.taiful.tfcontacts.call.CallHelper
 
 private fun copy(ctx: Context, text: String) {
     ctx.getSystemService(ClipboardManager::class.java)?.setPrimaryClip(ClipData.newPlainText("TF Contacts", text))
-    Toast.makeText(ctx, "কপি হয়েছে", Toast.LENGTH_SHORT).show()
+    Toast.makeText(ctx, "Copied", Toast.LENGTH_SHORT).show()
 }
 
 @Composable
@@ -99,17 +99,17 @@ fun DetailScreen(vm: MainViewModel, id: Long, onBack: () -> Unit, onEdit: () -> 
     Scaffold(topBar = {
         TopAppBar(
             title = {},
-            navigationIcon = { IconButton(onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "ফিরে যান") } },
+            navigationIcon = { IconButton(onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
             actions = {
                 IconButton({ vm.toggleStar(c) }) {
-                    Icon(if (c.starred) Icons.Filled.Star else Icons.Filled.StarBorder, "প্রিয়", tint = if (c.starred) Color(0xFFF59E0B) else MaterialTheme.colorScheme.onSurface)
+                    Icon(if (c.starred) Icons.Filled.Star else Icons.Filled.StarBorder, "Favourite", tint = if (c.starred) Color(0xFFF59E0B) else MaterialTheme.colorScheme.onSurface)
                 }
-                IconButton(onEdit) { Icon(Icons.Filled.Edit, "এডিট") }
-                IconButton({ menu = true }) { Icon(Icons.Filled.MoreVert, "আরও") }
+                IconButton(onEdit) { Icon(Icons.Filled.Edit, "Edit") }
+                IconButton({ menu = true }) { Icon(Icons.Filled.MoreVert, "More") }
                 DropdownMenu(menu, { menu = false }) {
-                    DropdownMenuItem({ Text("সিম / ফোনে সরান বা কপি") }, { menu = false; showMove = true }, leadingIcon = { Icon(Icons.Filled.DriveFileMove, null) })
-                    DropdownMenuItem({ Text("শেয়ার / এক্সপোর্ট (.vcf)") }, { menu = false; exportLauncher.launch("${c.name}.vcf") }, leadingIcon = { Icon(Icons.Filled.Share, null) })
-                    DropdownMenuItem({ Text("মুছে ফেলুন") }, { menu = false; confirmDelete = true }, leadingIcon = { Icon(Icons.Filled.Delete, null) })
+                    DropdownMenuItem({ Text("Move or copy to SIM / phone") }, { menu = false; showMove = true }, leadingIcon = { Icon(Icons.Filled.DriveFileMove, null) })
+                    DropdownMenuItem({ Text("Share / export (.vcf)") }, { menu = false; exportLauncher.launch("${c.name}.vcf") }, leadingIcon = { Icon(Icons.Filled.Share, null) })
+                    DropdownMenuItem({ Text("Delete") }, { menu = false; confirmDelete = true }, leadingIcon = { Icon(Icons.Filled.Delete, null) })
                 }
             }
         )
@@ -134,14 +134,14 @@ fun DetailScreen(vm: MainViewModel, id: Long, onBack: () -> Unit, onEdit: () -> 
 
             val first = c.phones.firstOrNull()?.number
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                QuickAction(Icons.Filled.Call, "কল", TFGreen, first != null) { first?.let(onCall) }
-                QuickAction(Icons.AutoMirrored.Filled.Message, "মেসেজ", TFBlue, first != null) { first?.let { CallHelper.sms(ctx, it) } }
-                QuickAction(Icons.Filled.Edit, "এডিট", Color(0xFF7C3AED), true, onEdit)
+                QuickAction(Icons.Filled.Call, "Call", TFGreen, first != null) { first?.let(onCall) }
+                QuickAction(Icons.AutoMirrored.Filled.Message, "Message", TFBlue, first != null) { first?.let { CallHelper.sms(ctx, it) } }
+                QuickAction(Icons.Filled.Edit, "Edit", Color(0xFF7C3AED), true, onEdit)
             }
             Spacer(Modifier.height(18.dp))
 
             Card {
-                if (c.phones.isEmpty()) Text("কোনো নম্বর নেই", Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (c.phones.isEmpty()) Text("No phone number", Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
                 c.phones.forEach { p ->
                     Row(
                         Modifier.fillMaxWidth().combinedClickable(onClick = { onCall(p.number) }, onLongClick = { copy(ctx, p.number) })
@@ -154,37 +154,37 @@ fun DetailScreen(vm: MainViewModel, id: Long, onBack: () -> Unit, onEdit: () -> 
                             Text(p.number, fontSize = 18.sp)
                             Text(p.typeLabel(), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                        IconButton({ CallHelper.sms(ctx, p.number) }) { Icon(Icons.AutoMirrored.Filled.Message, "মেসেজ", tint = TFBlue) }
+                        IconButton({ CallHelper.sms(ctx, p.number) }) { Icon(Icons.AutoMirrored.Filled.Message, "Message", tint = TFBlue) }
                     }
                 }
             }
 
             if (c.emails.isNotEmpty()) Card {
                 c.emails.forEach { e ->
-                    InfoRow(Icons.Filled.Email, e, "ইমেইল", onClick = {
+                    InfoRow(Icons.Filled.Email, e, "Email", onClick = {
                         try { ctx.startActivity(Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:$e"))) } catch (_: Exception) {}
                     }, onLong = { copy(ctx, e) })
                 }
             }
             if (c.addresses.isNotEmpty()) Card {
-                c.addresses.forEach { a -> InfoRow(Icons.Filled.LocationOn, a, "ঠিকানা", onClick = { copy(ctx, a) }, onLong = { copy(ctx, a) }) }
+                c.addresses.forEach { a -> InfoRow(Icons.Filled.LocationOn, a, "Address", onClick = { copy(ctx, a) }, onLong = { copy(ctx, a) }) }
             }
-            if (c.org.isNotBlank()) Card { InfoRow(Icons.Filled.Business, c.org, if (c.title.isNotBlank()) c.title else "প্রতিষ্ঠান", onClick = {}, onLong = { copy(ctx, c.org) }) }
+            if (c.org.isNotBlank()) Card { InfoRow(Icons.Filled.Business, c.org, if (c.title.isNotBlank()) c.title else "Company", onClick = {}, onLong = { copy(ctx, c.org) }) }
             if (c.websites.isNotEmpty()) Card {
-                c.websites.forEach { w -> InfoRow(Icons.Filled.Language, w, "ওয়েবসাইট", onClick = { copy(ctx, w) }, onLong = { copy(ctx, w) }) }
+                c.websites.forEach { w -> InfoRow(Icons.Filled.Language, w, "Website", onClick = { copy(ctx, w) }, onLong = { copy(ctx, w) }) }
             }
             if (c.note.isNotBlank()) Card {
                 Row(Modifier.padding(16.dp)) {
                     Icon(Icons.AutoMirrored.Filled.Notes, null, tint = MaterialTheme.colorScheme.primary)
                     Spacer(Modifier.width(14.dp))
                     Column {
-                        Text("নোট", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("Notes", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         SelectionContainer { Text(c.note, fontSize = 16.sp) }
                     }
                 }
             }
             Card {
-                InfoRow(Icons.Filled.Storage, c.sourceLabel, "কোথায় সংরক্ষিত", onClick = {}, onLong = {})
+                InfoRow(Icons.Filled.Storage, c.sourceLabel, "Saved in", onClick = {}, onLong = {})
             }
             Spacer(Modifier.height(40.dp))
         }
@@ -193,10 +193,10 @@ fun DetailScreen(vm: MainViewModel, id: Long, onBack: () -> Unit, onEdit: () -> 
     if (confirmDelete) {
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
-            title = { Text("\"${c.name}\" মুছবেন?") },
-            text = { Text("মোছার আগে একটা ব্যাকআপ রাখা হবে।") },
-            confirmButton = { TextButton({ confirmDelete = false; vm.delete(listOf(c)); onBack() }) { Text("মুছুন", color = MaterialTheme.colorScheme.error) } },
-            dismissButton = { TextButton({ confirmDelete = false }) { Text("বাতিল") } }
+            title = { Text("Delete \"${c.name}\"?") },
+            text = { Text("A backup is kept before deleting.") },
+            confirmButton = { TextButton({ confirmDelete = false; vm.delete(listOf(c)); onBack() }) { Text("Delete", color = MaterialTheme.colorScheme.error) } },
+            dismissButton = { TextButton({ confirmDelete = false }) { Text("Cancel") } }
         )
     }
     if (showMove) MoveDialog(vm, listOf(c)) { showMove = false }

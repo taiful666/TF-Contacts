@@ -101,7 +101,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             val result = try {
                 withContext(Dispatchers.IO) { block() }
             } catch (e: Exception) {
-                "সমস্যা হয়েছে: ${e.message ?: e.javaClass.simpleName}"
+                "Something went wrong: ${e.message ?: e.javaClass.simpleName}"
             }
             paused = false
             busy.value = null
@@ -112,16 +112,16 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun save(existing: Contact?, d: EditData, onSaved: (Long?) -> Unit) {
         viewModelScope.launch {
-            busy.value = "সেভ হচ্ছে…"
+            busy.value = "Saving…"
             val id = try {
                 withContext(Dispatchers.IO) { ContactWriter.save(ctx, existing, d) }
             } catch (e: Exception) {
-                message.value = "সেভ করা যায়নি: ${e.message}"
+                message.value = "Could not save: ${e.message}"
                 null
             }
             busy.value = null
             reload()
-            if (id != null) message.value = "সেভ হয়েছে"
+            if (id != null) message.value = "Saved"
             onSaved(id)
         }
     }
@@ -138,76 +138,81 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun delete(list: List<Contact>) = job("মোছা হচ্ছে…") {
+    fun delete(list: List<Contact>) = job("Deleting…") {
         Backups.create(ctx, list, "before-delete")
         list.forEach { ContactWriter.delete(ctx, it) }
-        "${list.size}টি কন্টাক্ট মোছা হয়েছে (ব্যাকআপ রাখা আছে)"
+        "${list.size} contact(s) deleted (a backup was kept)"
     }
 
-    fun merge(groups: List<List<Contact>>) = job("মার্জ হচ্ছে… একটু অপেক্ষা করুন") {
+    fun merge(groups: List<List<Contact>>) = job("Merging… please wait") {
         Backups.create(ctx, contacts.value, "before-merge")
         var n = 0
         groups.forEachIndexed { i, g ->
-            busy.value = "মার্জ হচ্ছে… ${i + 1}/${groups.size}"
+            busy.value = "Merging… ${i + 1}/${groups.size}"
             ContactWriter.merge(ctx, g); n++
         }
-        "${n}টি গ্রুপ মার্জ হয়েছে। আগের অবস্থার ব্যাকআপ রাখা আছে।"
+        "$n group(s) merged. A backup of the previous state was kept."
     }
 
-    fun copyToPhone(list: List<Contact>, remove: Boolean) = job(if (remove) "ফোনে সরানো হচ্ছে…" else "ফোনে কপি হচ্ছে…") {
+    fun copyToPhone(list: List<Contact>, remove: Boolean) = job(if (remove) "Moving to phone…" else "Copying to phone…") {
         if (remove) Backups.create(ctx, list, "before-move")
         var ok = 0
         list.forEachIndexed { i, c ->
-            busy.value = "ফোনে নেওয়া হচ্ছে… ${i + 1}/${list.size}"
+            busy.value = "Copying to phone… ${i + 1}/${list.size}"
             if (ContactWriter.copyToPhone(ctx, c, remove)) ok++
         }
-        "${ok}/${list.size}টি কন্টাক্ট ফোনে ${if (remove) "সরানো" else "কপি করা"} হয়েছে"
+        "$ok/${list.size} contact(s) ${if (remove) "moved" else "copied"} to phone"
     }
 
-    fun copyToSim(list: List<Contact>, sim: SimHelper.Sim?, remove: Boolean) = job("সিমে নেওয়া হচ্ছে…") {
+    fun copyToSim(list: List<Contact>, sim: SimHelper.Sim?, remove: Boolean) = job("Writing to SIM…") {
         if (remove) Backups.create(ctx, list, "before-move")
         var ok = 0
         list.forEachIndexed { i, c ->
-            busy.value = "সিমে নেওয়া হচ্ছে… ${i + 1}/${list.size}"
+            busy.value = "Writing to SIM… ${i + 1}/${list.size}"
             if (ContactWriter.copyToSim(ctx, c, sim, remove)) ok++
         }
-        if (ok == 0 && list.isNotEmpty()) "সিমে লেখা যায়নি। সিম ভর্তি হতে পারে, বা এই ফোন অ্যাপকে সিমে লিখতে দিচ্ছে না।"
-        else "${ok}/${list.size}টি কন্টাক্ট সিমে ${if (remove) "সরানো" else "কপি করা"} হয়েছে"
+        if (ok == 0 && list.isNotEmpty()) "Could not write to the SIM. It may be full, or this phone does not allow apps to write to the SIM."
+        else "$ok/${list.size} contact(s) ${if (remove) "moved" else "copied"} to SIM"
     }
 
-    fun export(list: List<Contact>, uri: Uri) = job("এক্সপোর্ট হচ্ছে…") {
+    fun export(list: List<Contact>, uri: Uri) = job("Exporting…") {
         ctx.contentResolver.openOutputStream(uri)?.use { Vcf.write(ctx, list, it) }
-            ?: return@job "ফাইল লেখা যায়নি"
-        "${list.size}টি কন্টাক্ট এক্সপোর্ট হয়েছে"
+            ?: return@job "Could not write the file"
+        "${list.size} contact(s) exported"
     }
 
-    fun backupNow() = job("ব্যাকআপ নেওয়া হচ্ছে…") {
+    fun backupNow() = job("Backing up…") {
         Backups.create(ctx, contacts.value, "manual")
-        "${contacts.value.size}টি কন্টাক্টের ব্যাকআপ নেওয়া হয়েছে"
+        "Backup of ${contacts.value.size} contacts saved"
     }
 
-    fun copyFileTo(file: java.io.File, uri: Uri) = job("সেভ হচ্ছে…") {
+    fun copyFileTo(file: java.io.File, uri: Uri) = job("Saving…") {
         ctx.contentResolver.openOutputStream(uri)?.use { out -> file.inputStream().use { it.copyTo(out) } }
-        "ফাইল সেভ হয়েছে"
+        "File saved"
     }
 
-    fun importFrom(uri: Uri) = job("ইমপোর্ট হচ্ছে…") {
+    fun importFrom(uri: Uri) = job("Importing…") {
         val text = ctx.contentResolver.openInputStream(uri)?.use { it.readBytes().toString(Charsets.UTF_8) }
-            ?: return@job "ফাইল খোলা যায়নি"
+            ?: return@job "Could not open the file"
         importText(text)
     }
 
-    fun restore(file: java.io.File) = job("ফিরিয়ে আনা হচ্ছে…") { importText(file.readText()) }
+    fun restore(file: java.io.File) = job("Restoring…") { importText(file.readText()) }
 
     private fun importText(text: String): String {
         val entries = Vcf.parse(text)
-        if (entries.isEmpty()) return "ফাইলে কোনো কন্টাক্ট পাওয়া যায়নি"
+        if (entries.isEmpty()) return "No contacts found in the file"
         val existing = ContactRepository.loadAll(ctx)
         val (added, skipped) = ContactWriter.importEntries(ctx, entries, existing)
-        return "${added}টি নতুন কন্টাক্ট যোগ হয়েছে" + if (skipped > 0) ", ${skipped}টি আগে থেকেই ছিল" else ""
+        return "$added new contact(s) added" + if (skipped > 0) ", $skipped already existed" else ""
     }
 
-    fun deleteCalls(ids: List<Long>) = job("মোছা হচ্ছে…") { CallLogRepo.delete(ctx, ids); null }
+    fun exportCalls(uri: Uri) = job("Exporting call history…") {
+        ctx.contentResolver.openOutputStream(uri)?.use { CallLogRepo.exportCsv(ctx, it) } ?: return@job "Could not write the file"
+        "Call history exported"
+    }
+
+    fun deleteCalls(ids: List<Long>) = job("Deleting…") { CallLogRepo.delete(ctx, ids); null }
 
     override fun onCleared() {
         try {

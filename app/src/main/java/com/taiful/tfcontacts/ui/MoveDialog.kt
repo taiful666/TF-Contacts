@@ -33,13 +33,13 @@ fun MoveDialog(vm: MainViewModel, list: List<Contact>, onDismiss: () -> Unit) {
     val ctx = LocalContext.current
     val sims = remember { SimHelper.sims(ctx) }
     // 0 = phone, 1.. = sims (or a single "SIM" if the list is empty)
-    val targets = remember { listOf("ফোন মেমোরি (এই ফোনে)") + sims.map { it.label }.ifEmpty { listOf("SIM") } }
+    val targets = remember { listOf("Phone memory (this phone)") + sims.map { it.label }.ifEmpty { listOf("SIM") } }
     var target by remember { mutableIntStateOf(0) }
     var move by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("${list.size}টি কন্টাক্ট কোথায় নেবেন?") },
+        title = { Text("Where to put ${list.size} contact(s)?") },
         text = {
             Column {
                 targets.forEachIndexed { i, t ->
@@ -52,25 +52,25 @@ fun MoveDialog(vm: MainViewModel, list: List<Contact>, onDismiss: () -> Unit) {
                     }
                 }
                 Spacer(Modifier.height(10.dp))
-                Text("কীভাবে?", fontWeight = FontWeight.SemiBold)
+                Text("How?", fontWeight = FontWeight.SemiBold)
                 Row(Modifier.fillMaxWidth().selectable(!move, onClick = { move = false }), verticalAlignment = Alignment.CenterVertically) {
-                    RadioButton(!move, onClick = { move = false }); Text("কপি (আগেরটাও থাকবে)")
+                    RadioButton(!move, onClick = { move = false }); Text("Copy (keep the original too)")
                 }
                 Row(Modifier.fillMaxWidth().selectable(move, onClick = { move = true }), verticalAlignment = Alignment.CenterVertically) {
-                    RadioButton(move, onClick = { move = true }); Text("সরান (আগের জায়গা থেকে মুছে যাবে)")
+                    RadioButton(move, onClick = { move = true }); Text("Move (remove from the old place)")
                 }
                 if (target > 0) {
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        "মনে রাখবেন: সিমে শুধু নাম (ছোট) ও প্রথম নম্বরটি রাখা যায়। ছবি, অন্য নম্বর, ইমেইল, নোট সিমে যায় না।" +
-                            if (move) " \"সরান\" দিলে সেগুলো হারিয়ে যাবে (তবে একটা ব্যাকআপ রাখা হবে)।" else "",
+                        "Note: a SIM holds only a short name and the first number. Photos, other numbers, emails and notes do not fit on a SIM." +
+                            if (move) " With Move they will be lost (a backup is kept)." else "",
                         fontSize = 13.sp, color = MaterialTheme.colorScheme.error
                     )
                 }
                 if (move && list.any { c -> c.raws.any { it.kind == com.taiful.tfcontacts.data.SourceKind.GOOGLE } }) {
                     Spacer(Modifier.height(6.dp))
                     Text(
-                        "Google অ্যাকাউন্টের কন্টাক্ট সরালে সেটা Google থেকেও মুছে যাবে।",
+                        "Moving a Google account contact also removes it from Google.",
                         fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
@@ -81,8 +81,8 @@ fun MoveDialog(vm: MainViewModel, list: List<Contact>, onDismiss: () -> Unit) {
                 onDismiss()
                 if (target == 0) vm.copyToPhone(list, move)
                 else vm.copyToSim(list, sims.getOrNull(target - 1), move)
-            }) { Text(if (move) "সরান" else "কপি করুন") }
+            }) { Text(if (move) "Move" else "Copy") }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("বাতিল") } }
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
     )
 }

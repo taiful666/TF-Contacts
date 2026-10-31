@@ -54,7 +54,7 @@ object CallHelper {
             try {
                 context.startActivity(Intent(Intent.ACTION_CALL, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             } catch (_: Exception) {
-                Toast.makeText(context, "কল করার অনুমতি দিন", Toast.LENGTH_LONG).show()
+                Toast.makeText(context, "Please allow phone calls permission", Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -63,7 +63,7 @@ object CallHelper {
         try {
             context.startActivity(Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:" + Uri.encode(number))).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         } catch (_: Exception) {
-            Toast.makeText(context, "মেসেজ অ্যাপ পাওয়া যায়নি", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "No messaging app found", Toast.LENGTH_SHORT).show()
         }
     }
 

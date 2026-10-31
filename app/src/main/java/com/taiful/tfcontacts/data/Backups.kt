@@ -14,10 +14,10 @@ object Backups {
             get() = SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.getDefault()).format(Date(file.lastModified()))
         val reason: String
             get() = when {
-                file.name.startsWith("before-merge") -> "মার্জের আগে"
-                file.name.startsWith("before-move") -> "সরানোর আগে"
-                file.name.startsWith("before-delete") -> "মোছার আগে"
-                else -> "নিজে নেওয়া"
+                file.name.startsWith("before-merge") -> "Before merge"
+                file.name.startsWith("before-move") -> "Before move"
+                file.name.startsWith("before-delete") -> "Before delete"
+                else -> "Manual"
             }
     }
 

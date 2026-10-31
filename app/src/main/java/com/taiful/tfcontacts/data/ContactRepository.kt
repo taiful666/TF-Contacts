@@ -100,7 +100,7 @@ object ContactRepository {
             .map {
                 Contact(
                     id = it.id, lookupKey = it.lookup,
-                    name = it.name.ifBlank { it.phones.firstOrNull()?.number ?: it.emails.firstOrNull() ?: "(নাম নেই)" },
+                    name = it.name.ifBlank { it.phones.firstOrNull()?.number ?: it.emails.firstOrNull() ?: "(No name)" },
                     starred = it.starred, photoUri = it.photo, thumbUri = it.thumb,
                     phones = it.phones, emails = it.emails, org = it.org, title = it.title,
                     addresses = it.addresses, websites = it.websites, nicknames = it.nicknames,
@@ -142,7 +142,7 @@ object ContactRepository {
         }
 
         // Same name (but no shared number) — shown separately, not ticked by default
-        all.filter { it.id !in inNumberGroup && it.name.isNotBlank() && it.name != "(নাম নেই)" }
+        all.filter { it.id !in inNumberGroup && it.name.isNotBlank() && it.name != "(No name)" }
             .groupBy { Normalize.name(it.name) }
             .filter { it.value.size > 1 }
             .forEach { result += DupGroup(it.value, byNumber = false) }

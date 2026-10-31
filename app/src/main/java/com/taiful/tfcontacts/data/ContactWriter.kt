@@ -179,7 +179,7 @@ object ContactWriter {
         }
     }
 
-    private fun looksLikeNumber(s: String) = s.isBlank() || s == "(নাম নেই)" || s.all { it.isDigit() || it in "+-() " }
+    private fun looksLikeNumber(s: String) = s.isBlank() || s == "(No name)" || s.all { it.isDigit() || it in "+-() " }
 
     /** What the merged contact will contain (also shown as a preview). */
     fun mergedData(group: List<Contact>): EditData {

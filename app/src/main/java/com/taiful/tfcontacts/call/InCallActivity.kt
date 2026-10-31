@@ -179,7 +179,7 @@ private fun CallScreen(onFinish: () -> Unit, onProximity: (Boolean) -> Unit) {
             Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
                 Icon(Icons.Filled.CallEnd, null, tint = TFRed, modifier = Modifier.size(56.dp))
                 Spacer(Modifier.height(12.dp))
-                Text("কল শেষ", color = Color.White, fontSize = 22.sp)
+                Text("Call ended", color = Color.White, fontSize = 22.sp)
             }
         } else if (state == Call.STATE_SELECT_PHONE_ACCOUNT) {
             SimChooser(call)
@@ -196,7 +196,7 @@ private fun SimChooser(call: Call) {
     Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
         Text(call.number() ?: "", color = Color.White, fontSize = 26.sp)
         Spacer(Modifier.height(8.dp))
-        Text("কোন সিম দিয়ে কল করবেন?", color = Color(0xFFB7C0DA), fontSize = 16.sp)
+        Text("Call with which SIM?", color = Color(0xFFB7C0DA), fontSize = 16.sp)
         Spacer(Modifier.height(24.dp))
         accounts.forEach { h ->
             Surface(
@@ -212,7 +212,7 @@ private fun SimChooser(call: Call) {
             }
         }
         Spacer(Modifier.height(16.dp))
-        TextButton(onClick = { call.disconnect() }) { Text("বাতিল", color = TFRed, fontSize = 16.sp) }
+        TextButton(onClick = { call.disconnect() }) { Text("Cancel", color = TFRed, fontSize = 16.sp) }
     }
 }
 
@@ -234,20 +234,20 @@ private fun ActiveCall(call: Call, state: Int, calls: List<Call>, audio: CallAud
 
     val isConference = call.details.hasProperty(Call.Details.PROPERTY_CONFERENCE)
     val title = when {
-        isConference -> "কনফারেন্স কল"
+        isConference -> "Conference call"
         name != null -> name!!
-        number.isNullOrBlank() -> "অজানা নম্বর"
+        number.isNullOrBlank() -> "Unknown number"
         else -> number ?: ""
     }
     val status = when (state) {
-        Call.STATE_RINGING -> "কল আসছে…"
-        Call.STATE_DIALING, Call.STATE_CONNECTING -> "কল করা হচ্ছে…"
-        Call.STATE_HOLDING -> "হোল্ডে আছে"
+        Call.STATE_RINGING -> "Incoming call…"
+        Call.STATE_DIALING, Call.STATE_CONNECTING -> "Calling…"
+        Call.STATE_HOLDING -> "On hold"
         Call.STATE_ACTIVE -> {
             val t = call.details.connectTimeMillis
-            if (t > 0) durationText(((now - t) / 1000).coerceAtLeast(0)).ifEmpty { "0:00" } else "কথা চলছে"
+            if (t > 0) durationText(((now - t) / 1000).coerceAtLeast(0)).ifEmpty { "0:00" } else "Connected"
         }
-        Call.STATE_DISCONNECTING, Call.STATE_DISCONNECTED -> "কল শেষ হচ্ছে…"
+        Call.STATE_DISCONNECTING, Call.STATE_DISCONNECTED -> "Ending call…"
         else -> ""
     }
     val sim = remember(call.details.accountHandle) {
@@ -282,7 +282,7 @@ private fun ActiveCall(call: Call, state: Int, calls: List<Call>, audio: CallAud
                 Row(Modifier.padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Filled.SwapCalls, null, tint = Color.White, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text("${other.number() ?: "অন্য কল"} — হোল্ডে (চাপ দিয়ে বদলান)", color = Color.White, fontSize = 13.sp)
+                    Text("${other.number() ?: "Other call"} — on hold (tap to swap)", color = Color.White, fontSize = 13.sp)
                 }
             }
         }
@@ -318,8 +318,8 @@ private fun ActiveCall(call: Call, state: Int, calls: List<Call>, audio: CallAud
 
         if (state == Call.STATE_RINGING) {
             Row(Modifier.fillMaxWidth().padding(bottom = 48.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
-                BigRound(Icons.Filled.CallEnd, TFRed, "কেটে দিন") { CallManager.reject(call) }
-                BigRound(Icons.Filled.Call, TFGreen, "ধরুন") { CallManager.answer(call) }
+                BigRound(Icons.Filled.CallEnd, TFRed, "Decline") { CallManager.reject(call) }
+                BigRound(Icons.Filled.Call, TFGreen, "Answer") { CallManager.answer(call) }
             }
         } else {
             val muted = audio?.isMuted == true
@@ -328,24 +328,24 @@ private fun ActiveCall(call: Call, state: Int, calls: List<Call>, audio: CallAud
             val bt = audio?.route == CallAudioState.ROUTE_BLUETOOTH
             val holding = state == Call.STATE_HOLDING
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                SmallToggle(if (muted) Icons.Filled.MicOff else Icons.Filled.Mic, "মিউট", muted) { CallManager.setMuted(!muted) }
-                SmallToggle(Icons.Filled.Dialpad, "কিপ্যাড", showKeypad) { showKeypad = !showKeypad }
-                SmallToggle(Icons.AutoMirrored.Filled.VolumeUp, "স্পিকার", speaker) { CallManager.toggleSpeaker() }
+                SmallToggle(if (muted) Icons.Filled.MicOff else Icons.Filled.Mic, "Mute", muted) { CallManager.setMuted(!muted) }
+                SmallToggle(Icons.Filled.Dialpad, "Keypad", showKeypad) { showKeypad = !showKeypad }
+                SmallToggle(Icons.AutoMirrored.Filled.VolumeUp, "Speaker", speaker) { CallManager.toggleSpeaker() }
             }
             Spacer(Modifier.height(14.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                SmallToggle(if (holding) Icons.Filled.PlayArrow else Icons.Filled.Pause, if (holding) "চালু করুন" else "হোল্ড", holding) {
+                SmallToggle(if (holding) Icons.Filled.PlayArrow else Icons.Filled.Pause, if (holding) "Resume" else "Hold", holding) {
                     if (holding) call.unhold() else call.hold()
                 }
                 if (btAvailable) {
-                    SmallToggle(Icons.Filled.Bluetooth, "ব্লুটুথ", bt) {
+                    SmallToggle(Icons.Filled.Bluetooth, "Bluetooth", bt) {
                         CallManager.setRoute(if (bt) CallAudioState.ROUTE_WIRED_OR_EARPIECE else CallAudioState.ROUTE_BLUETOOTH)
                     }
                 }
             }
             Spacer(Modifier.height(26.dp))
             Box(Modifier.padding(bottom = 40.dp)) {
-                BigRound(Icons.Filled.CallEnd, TFRed, "কল শেষ") { CallManager.hangup(call) }
+                BigRound(Icons.Filled.CallEnd, TFRed, "Call ended") { CallManager.hangup(call) }
             }
         }
     }

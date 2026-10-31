@@ -36,6 +36,11 @@ class TFInCallService : InCallService() {
     override fun onCallRemoved(call: Call) {
         super.onCallRemoved(call)
         CallManager.remove(call)
+        // Save the finished call into the app's unlimited history (after the phone writes its log)
+        val app = applicationContext
+        android.os.Handler(mainLooper).postDelayed({
+            Thread { com.taiful.tfcontacts.data.CallLogRepo.sync(app) }.start()
+        }, 4000)
     }
 
     @Deprecated("Deprecated in Java")

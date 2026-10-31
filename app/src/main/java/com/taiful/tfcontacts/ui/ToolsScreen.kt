@@ -21,6 +21,8 @@ import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.CallMerge
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.TableChart
 import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.SimCard
@@ -54,6 +56,7 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import com.taiful.tfcontacts.MainViewModel
 import com.taiful.tfcontacts.call.CallHelper
 import com.taiful.tfcontacts.data.Backups
+import com.taiful.tfcontacts.data.CallLogRepo
 import com.taiful.tfcontacts.data.SourceKind
 
 @Composable
@@ -86,76 +89,90 @@ fun ToolsScreen(vm: MainViewModel, onBack: () -> Unit, onDuplicates: () -> Unit,
         pendingCopy = null
     }
 
+    val exportCalls = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
+        if (uri != null) vm.exportCalls(uri)
+    }
+
     val simContacts = all.filter { SourceKind.SIM in it.kinds }
 
     Scaffold(topBar = {
         TopAppBar(
-            title = { Text("সেটিংস ও টুলস") },
-            navigationIcon = { IconButton(onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "ফিরে যান") } }
+            title = { Text("Settings & tools") },
+            navigationIcon = { IconButton(onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } }
         )
     }) { pad ->
         Column(Modifier.padding(pad).fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 14.dp)) {
             // Summary
             Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(20.dp), modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
                 Column(Modifier.padding(16.dp)) {
-                    Text("মোট ${all.size}টি কন্টাক্ট", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                    Text("${all.size} contacts", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        "ফোনে ${all.count { SourceKind.PHONE in it.kinds }} • সিমে ${simContacts.size} • Google-এ ${all.count { SourceKind.GOOGLE in it.kinds }}",
+                        "Phone ${all.count { SourceKind.PHONE in it.kinds }} • SIM ${simContacts.size} • Google ${all.count { SourceKind.GOOGLE in it.kinds }}",
                         color = MaterialTheme.colorScheme.onPrimaryContainer
                     )
                 }
             }
 
-            Header("ফোন অ্যাপ")
+            Header("Phone app")
             Tool(
                 if (isDefault) Icons.Filled.Verified else Icons.Filled.PhoneAndroid,
-                if (isDefault) "TF Contacts এখন ডিফল্ট ফোন অ্যাপ ✓" else "ডিফল্ট ফোন অ্যাপ বানান",
-                if (isDefault) "সব কল এই অ্যাপের ডায়াল প্যাড ও কল স্ক্রিন দিয়ে হবে। আগের অ্যাপে ফিরতে: ফোনের Settings → Apps → Default apps → Phone app"
-                else "চাপ দিয়ে 'TF Contacts' বেছে নিন। তাহলে এর ডায়াল প্যাড ও কল স্ক্রিন সবসময় ব্যবহার হবে।"
+                if (isDefault) "TF Contacts is your default phone app ✓" else "Make default phone app",
+                if (isDefault) "All calls use this app's dial pad and call screen. To switch back: phone Settings → Apps → Default apps → Phone app"
+                else "Tap and choose 'TF Contacts' so its dial pad and call screen are always used."
             ) { if (!isDefault) onMakeDefault() }
 
-            Header("পরিষ্কার করা")
-            Tool(Icons.Filled.CallMerge, "ডুপ্লিকেট খুঁজুন ও মার্জ করুন", if (dups.isEmpty()) "এখন কোনো ডুপ্লিকেট নেই" else "${dups.size}টি ডুপ্লিকেট গ্রুপ পাওয়া গেছে", onDuplicates)
+            Header("Clean up")
+            Tool(Icons.Filled.CallMerge, "Find & merge duplicates", if (dups.isEmpty()) "No duplicates right now" else "${dups.size} duplicate group(s) found", onDuplicates)
 
-            Header("সিম ও ফোন")
-            Tool(Icons.Filled.SimCard, "সিমের সব কন্টাক্ট ফোনে নিন", "সিমে ${simContacts.size}টি কন্টাক্ট আছে। ফোনে নিলে ছবি, একাধিক নম্বর, নোট রাখা যাবে।") {
-                if (simContacts.isNotEmpty()) simAll = true else vm.message.value = "সিমে কোনো কন্টাক্ট পাওয়া যায়নি"
+            Header("SIM & phone")
+            Tool(Icons.Filled.SimCard, "Move all SIM contacts to phone", "${simContacts.size} contacts on SIM. On the phone they can have photos, several numbers and notes.") {
+                if (simContacts.isNotEmpty()) simAll = true else vm.message.value = "No SIM contacts found"
             }
             Text(
-                "নির্দিষ্ট কন্টাক্ট সিমে বা ফোনে নিতে: কন্টাক্টের তালিকায় নামের ওপর একটু চেপে ধরে রাখুন, কয়েকটা বাছাই করুন, তারপর ওপরের 'সরান' আইকনে চাপ দিন।",
+                "To move specific contacts to SIM or phone: in the contact list, press and hold a name, select the ones you want, then tap the Move icon at the top.",
                 fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(8.dp)
             )
 
-            Header("ব্যাকআপ ও এক্সপোর্ট")
-            Tool(Icons.Filled.Upload, "সব কন্টাক্ট এক্সপোর্ট করুন (.vcf)", "একটা ফাইল তৈরি হবে, যেকোনো ফোনে খুলে কন্টাক্ট ফিরিয়ে আনা যায়।") {
+            Header("Backup & export")
+            Tool(Icons.Filled.Upload, "Export all contacts (.vcf)", "Creates a file you can open on any phone to get the contacts back.") {
                 exportAll.launch("TF-Contacts-backup-${all.size}.vcf")
             }
-            Tool(Icons.Filled.Download, "ফাইল থেকে কন্টাক্ট আনুন (.vcf)", "আগের ব্যাকআপ ফাইল বেছে নিন। যেগুলো আগে থেকেই আছে সেগুলো আবার যোগ হবে না।") {
+            Tool(Icons.Filled.Download, "Import contacts from file (.vcf)", "Pick a backup file. Contacts that already exist are not added again.") {
                 importer.launch(arrayOf("text/x-vcard", "text/vcard", "text/directory", "*/*"))
             }
-            Tool(Icons.Filled.Backup, "এখনই ব্যাকআপ নিন", "অ্যাপের ভেতরে (এই ফোনেই) একটা কপি রাখা হবে।") { vm.backupNow() }
+            Tool(Icons.Filled.Backup, "Back up now", "Keeps a copy inside the app, on this phone.") { vm.backupNow() }
 
             if (backups.isNotEmpty()) {
-                Text("রাখা ব্যাকআপ (মার্জ/মোছার আগে নিজে থেকেই নেওয়া হয়):", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(8.dp))
+                Text("Saved backups (made automatically before merge/delete):", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(8.dp))
                 backups.forEach { b ->
                     Surface(color = MaterialTheme.colorScheme.surfaceContainer, shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp)) {
                         Row(Modifier.padding(start = 14.dp, end = 4.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
                                 Text(b.title, fontWeight = FontWeight.Medium, fontSize = 14.sp)
-                                Text("${b.reason} • ${b.count}টি কন্টাক্ট", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text("${b.reason} • ${b.count} contacts", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
-                            IconButton({ restoreItem = b }) { Icon(Icons.Filled.Restore, "ফিরিয়ে আনুন", tint = MaterialTheme.colorScheme.primary) }
-                            IconButton({ pendingCopy = b.file; saveBackup.launch(b.file.name) }) { Icon(Icons.Filled.Download, "ফাইল হিসেবে সেভ", tint = MaterialTheme.colorScheme.primary) }
+                            IconButton({ restoreItem = b }) { Icon(Icons.Filled.Restore, "Restore", tint = MaterialTheme.colorScheme.primary) }
+                            IconButton({ pendingCopy = b.file; saveBackup.launch(b.file.name) }) { Icon(Icons.Filled.Download, "Save as file", tint = MaterialTheme.colorScheme.primary) }
                         }
                     }
                 }
             }
 
-            Header("নিরাপত্তা")
+            Header("Call history")
+            val callCount = remember(refresh, busy) { CallLogRepo.totalCount(ctx) }
             Tool(
-                Icons.Filled.CloudOff, "সম্পূর্ণ অফলাইন",
-                "এই অ্যাপের ইন্টারনেট ব্যবহারের অনুমতিই নেই। কন্টাক্ট কোথাও পাঠানো হয় না। (ফোনের সেটিংসে Google অ্যাকাউন্ট সিঙ্ক চালু থাকলে Google-এর কন্টাক্টগুলো ফোন নিজে সিঙ্ক করে — সেটা এই অ্যাপের কাজ নয়।)"
+                Icons.Filled.History, "Unlimited call history",
+                "$callCount calls saved. Android keeps only about the last 500 calls, but TF Contacts keeps every call on this phone for as long as you want."
+            ) {}
+            Tool(Icons.Filled.TableChart, "Export call history (.csv)", "Opens in Excel or Google Sheets.") {
+                exportCalls.launch("TF-Call-History.csv")
+            }
+
+            Header("Privacy")
+            Tool(
+                Icons.Filled.CloudOff, "Fully offline",
+                "This app has no internet permission at all. Contacts and call history never leave your phone. (If Google account sync is on in phone settings, the phone itself syncs Google contacts — not this app.)"
             ) {}
             Spacer(Modifier.height(40.dp))
         }
@@ -164,19 +181,19 @@ fun ToolsScreen(vm: MainViewModel, onBack: () -> Unit, onDuplicates: () -> Unit,
     if (simAll) {
         AlertDialog(
             onDismissRequest = { simAll = false },
-            title = { Text("সিমের ${simContacts.size}টি কন্টাক্ট ফোনে নেবেন?") },
-            text = { Text("\"সরান\" দিলে সিম থেকে মুছে ফোনে চলে যাবে। \"কপি\" দিলে দুই জায়গাতেই থাকবে (তখন ডুপ্লিকেট দেখাবে)।") },
-            confirmButton = { TextButton({ simAll = false; vm.copyToPhone(simContacts, true) }) { Text("সরান") } },
-            dismissButton = { TextButton({ simAll = false; vm.copyToPhone(simContacts, false) }) { Text("কপি") } }
+            title = { Text("Move ${simContacts.size} SIM contacts to phone?") },
+            text = { Text("Move: removed from SIM and saved on the phone. Copy: kept in both places (they will show as duplicates).") },
+            confirmButton = { TextButton({ simAll = false; vm.copyToPhone(simContacts, true) }) { Text("Move") } },
+            dismissButton = { TextButton({ simAll = false; vm.copyToPhone(simContacts, false) }) { Text("Copy") } }
         )
     }
     restoreItem?.let { b ->
         AlertDialog(
             onDismissRequest = { restoreItem = null },
-            title = { Text("এই ব্যাকআপ থেকে ফিরিয়ে আনবেন?") },
-            text = { Text("${b.title} — ${b.count}টি কন্টাক্ট। যেগুলো এখন নেই শুধু সেগুলোই যোগ হবে।") },
-            confirmButton = { TextButton({ restoreItem = null; vm.restore(b.file) }) { Text("ফিরিয়ে আনুন") } },
-            dismissButton = { TextButton({ restoreItem = null }) { Text("বাতিল") } }
+            title = { Text("Restore from this backup?") },
+            text = { Text("${b.title} — ${b.count} contacts. Only contacts that are missing now will be added.") },
+            confirmButton = { TextButton({ restoreItem = null; vm.restore(b.file) }) { Text("Restore") } },
+            dismissButton = { TextButton({ restoreItem = null }) { Text("Cancel") } }
         )
     }
 }

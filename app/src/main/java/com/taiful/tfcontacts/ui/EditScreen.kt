@@ -117,7 +117,7 @@ fun EditScreen(vm: MainViewModel, id: Long?, number: String?, onBack: () -> Unit
             photoChanged = photoChanged, photo = photo
         )
         if (d.name.isBlank() && d.phones.isEmpty() && d.emails.isEmpty()) {
-            vm.message.value = "নাম বা নম্বর দিন"
+            vm.message.value = "Enter a name or number"
             return
         }
         vm.save(existing, d, onSaved)
@@ -125,9 +125,9 @@ fun EditScreen(vm: MainViewModel, id: Long?, number: String?, onBack: () -> Unit
 
     Scaffold(topBar = {
         TopAppBar(
-            title = { Text(if (existing == null) "নতুন কন্টাক্ট" else "কন্টাক্ট এডিট") },
-            navigationIcon = { IconButton(onBack) { Icon(Icons.Filled.Close, "বাতিল") } },
-            actions = { Button(onClick = { save() }, modifier = Modifier.padding(end = 8.dp)) { Text("সেভ") } }
+            title = { Text(if (existing == null) "New contact" else "Edit contact") },
+            navigationIcon = { IconButton(onBack) { Icon(Icons.Filled.Close, "Cancel") } },
+            actions = { Button(onClick = { save() }, modifier = Modifier.padding(end = 8.dp)) { Text("Save") } }
         )
     }) { pad ->
         Column(
@@ -141,61 +141,61 @@ fun EditScreen(vm: MainViewModel, id: Long?, number: String?, onBack: () -> Unit
             ) {
                 val img = preview ?: existingPhoto
                 if (img != null) Image(img, null, Modifier.size(120.dp), contentScale = ContentScale.Crop)
-                else Icon(Icons.Filled.AddAPhoto, "ছবি", Modifier.size(40.dp), tint = MaterialTheme.colorScheme.primary)
+                else Icon(Icons.Filled.AddAPhoto, "Photo", Modifier.size(40.dp), tint = MaterialTheme.colorScheme.primary)
             }
             Row {
                 TextButton({ picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }) {
-                    Text(if (preview != null || existingPhoto != null) "ছবি বদলান" else "ছবি দিন (ইচ্ছা হলে)")
+                    Text(if (preview != null || existingPhoto != null) "Change photo" else "Add photo (optional)")
                 }
                 if (preview != null || existingPhoto != null) {
-                    TextButton({ photo = null; photoChanged = true }) { Text("ছবি সরান", color = MaterialTheme.colorScheme.error) }
+                    TextButton({ photo = null; photoChanged = true }) { Text("Remove photo", color = MaterialTheme.colorScheme.error) }
                 }
             }
 
             if (existing?.isSimOnly == true) {
                 Text(
-                    "এটা সিমের কন্টাক্ট। সেভ করলে এটা ফোন মেমোরিতে চলে যাবে, যাতে ছবি, একাধিক নম্বর, নোট রাখা যায়।",
+                    "This is a SIM contact. Saving moves it to phone memory, so it can have a photo, several numbers and notes.",
                     fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 6.dp)
                 )
             }
 
-            Field("নাম", name, { name = it }, singleLine = false)
+            Field("Name", name, { name = it }, singleLine = false)
 
-            Section("ফোন নম্বর")
+            Section("Phone numbers")
             phones.forEachIndexed { i, p ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     OutlinedTextField(
                         p.number, { phones[i] = p.copy(number = it) },
                         Modifier.weight(1f).padding(vertical = 4.dp),
-                        label = { Text("নম্বর") }, singleLine = true,
+                        label = { Text("Number") }, singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone)
                     )
                     TypePicker(p) { phones[i] = it }
-                    IconButton({ phones.removeAt(i) }) { Icon(Icons.Filled.RemoveCircleOutline, "সরান", tint = MaterialTheme.colorScheme.error) }
+                    IconButton({ phones.removeAt(i) }) { Icon(Icons.Filled.RemoveCircleOutline, "Remove", tint = MaterialTheme.colorScheme.error) }
                 }
             }
-            AddButton("আরেকটি নম্বর") { phones.add(PhoneNum("")) }
+            AddButton("Add another number") { phones.add(PhoneNum("")) }
 
-            Section("ইমেইল")
+            Section("Email")
             emails.forEachIndexed { i, e ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     OutlinedTextField(
-                        e, { emails[i] = it }, Modifier.weight(1f).padding(vertical = 4.dp), label = { Text("ইমেইল") }, singleLine = true,
+                        e, { emails[i] = it }, Modifier.weight(1f).padding(vertical = 4.dp), label = { Text("Email") }, singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
                     )
-                    IconButton({ emails.removeAt(i) }) { Icon(Icons.Filled.RemoveCircleOutline, "সরান", tint = MaterialTheme.colorScheme.error) }
+                    IconButton({ emails.removeAt(i) }) { Icon(Icons.Filled.RemoveCircleOutline, "Remove", tint = MaterialTheme.colorScheme.error) }
                 }
             }
-            AddButton("ইমেইল যোগ করুন") { emails.add("") }
+            AddButton("Add email") { emails.add("") }
 
-            Section("অন্যান্য তথ্য")
-            Field("প্রতিষ্ঠান / অফিস", org, { org = it })
-            Field("পদবি", title, { title = it })
-            Field("ঠিকানা (একাধিক হলে মাঝে একটা ফাঁকা লাইন দিন)", address, { address = it }, singleLine = false)
-            Field("ওয়েবসাইট / লিংক (প্রতি লাইনে একটি)", website, { website = it }, singleLine = false)
-            Field("নোট (যত ইচ্ছা লিখুন)", note, { note = it }, singleLine = false, minLines = 4)
+            Section("More details")
+            Field("Company", org, { org = it })
+            Field("Job title", title, { title = it })
+            Field("Address (leave an empty line between addresses)", address, { address = it }, singleLine = false)
+            Field("Website / links (one per line)", website, { website = it }, singleLine = false)
+            Field("Notes (write as much as you like)", note, { note = it }, singleLine = false, minLines = 4)
             Spacer(Modifier.height(16.dp))
-            Button(onClick = { save() }, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("সেভ করুন", fontSize = 17.sp) }
+            Button(onClick = { save() }, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Save", fontSize = 17.sp) }
             Spacer(Modifier.height(40.dp))
         }
     }

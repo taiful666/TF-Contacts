@@ -63,12 +63,12 @@ fun DuplicatesScreen(vm: MainViewModel, onBack: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("ডুপ্লিকেট কন্টাক্ট") },
-                navigationIcon = { IconButton(onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "ফিরে যান") } },
+                title = { Text("Duplicate contacts") },
+                navigationIcon = { IconButton(onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
                 actions = {
                     if (groups.isNotEmpty()) {
                         TextButton({ chosen = if (sel.size == groups.size) emptySet() else groups.map { it.key }.toSet() }) {
-                            Text(if (sel.size == groups.size) "কোনোটা না" else "সব বাছুন")
+                            Text(if (sel.size == groups.size) "Select none" else "Select all")
                         }
                     }
                 }
@@ -80,7 +80,7 @@ fun DuplicatesScreen(vm: MainViewModel, onBack: () -> Unit) {
                     Button(
                         onClick = { confirm = true }, enabled = sel.isNotEmpty(),
                         modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(14.dp).height(54.dp)
-                    ) { Text("নির্বাচিত ${sel.size}টি গ্রুপ মার্জ করুন", fontSize = 17.sp) }
+                    ) { Text("Merge ${sel.size} selected group(s)", fontSize = 17.sp) }
                 }
             }
         }
@@ -88,15 +88,15 @@ fun DuplicatesScreen(vm: MainViewModel, onBack: () -> Unit) {
         if (groups.isEmpty()) {
             Column(Modifier.padding(pad).fillMaxSize().padding(32.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
                 Icon(Icons.Filled.CheckCircle, null, tint = TFGreen, modifier = Modifier.padding(8.dp))
-                Text("কোনো ডুপ্লিকেট নেই। সব পরিষ্কার!", fontSize = 18.sp)
+                Text("No duplicates. All clean!", fontSize = 18.sp)
             }
             return@Scaffold
         }
         LazyColumn(Modifier.padding(pad).fillMaxSize(), contentPadding = PaddingValues(12.dp)) {
             item {
                 Text(
-                    "${groups.size}টি গ্রুপ পাওয়া গেছে। \"একই নম্বর\" গ্রুপগুলো আগে থেকেই বাছাই করা আছে। " +
-                        "\"শুধু নাম একই\" গ্রুপগুলো ভিন্ন মানুষও হতে পারে, তাই দেখে বাছাই করুন। মার্জের আগে সব কন্টাক্টের একটা ব্যাকআপ রাখা হবে।",
+                    "${groups.size} group(s) found. \"Same number\" groups are already selected. " +
+                        "\"Same name only\" groups may be different people, so check them first. A backup of all contacts is made before merging.",
                     fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(4.dp, 0.dp, 4.dp, 10.dp)
                 )
             }
@@ -113,12 +113,12 @@ fun DuplicatesScreen(vm: MainViewModel, onBack: () -> Unit) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Checkbox(on, { chosen = if (on) sel - g.key else sel + g.key })
                             Text(
-                                if (g.byNumber) "একই নম্বর" else "শুধু নাম একই",
+                                if (g.byNumber) "Same number" else "Same name only",
                                 color = if (g.byNumber) TFGreen else MaterialTheme.colorScheme.error,
                                 fontWeight = FontWeight.SemiBold, fontSize = 13.sp
                             )
                             Spacer(Modifier.width(6.dp))
-                            Text("• ${g.members.size}টি", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("• ${g.members.size} contacts", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         g.members.forEach { c ->
                             Row(Modifier.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -132,7 +132,7 @@ fun DuplicatesScreen(vm: MainViewModel, onBack: () -> Unit) {
                             }
                         }
                         HorizontalDivider(Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outlineVariant)
-                        Text("মার্জের পর: ", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
+                        Text("After merge: ", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
                         Text(merged.name, fontWeight = FontWeight.SemiBold)
                         Text(merged.phones.joinToString(", ") { it.number }, fontSize = 13.sp)
                         if (merged.emails.isNotEmpty()) Text(merged.emails.joinToString(", "), fontSize = 13.sp)
@@ -145,15 +145,15 @@ fun DuplicatesScreen(vm: MainViewModel, onBack: () -> Unit) {
     if (confirm) {
         AlertDialog(
             onDismissRequest = { confirm = false },
-            title = { Text("${sel.size}টি গ্রুপ মার্জ করবেন?") },
-            text = { Text("প্রতিটা গ্রুপের সব নম্বর, ইমেইল, ছবি, নোট একটা কন্টাক্টে চলে যাবে, বাকিগুলো মুছে যাবে। আগে সব কন্টাক্টের ব্যাকআপ রাখা হবে (সেটিংস → ব্যাকআপ থেকে ফিরিয়ে আনা যাবে)।") },
+            title = { Text("Merge ${sel.size} group(s)?") },
+            text = { Text("All numbers, emails, photos and notes of each group go into one contact; the extra copies are removed. A backup of all contacts is made first (restore it from Settings → Backup).") },
             confirmButton = {
                 TextButton({
                     confirm = false
                     vm.merge(groups.filter { it.key in sel }.map { it.members })
-                }) { Text("মার্জ করুন") }
+                }) { Text("Merge") }
             },
-            dismissButton = { TextButton({ confirm = false }) { Text("বাতিল") } }
+            dismissButton = { TextButton({ confirm = false }) { Text("Cancel") } }
         )
     }
 }

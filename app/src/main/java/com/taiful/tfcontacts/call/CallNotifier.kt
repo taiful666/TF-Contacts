@@ -21,7 +21,7 @@ object CallNotifier {
         val nm = context.getSystemService(NotificationManager::class.java)
         if (nm.getNotificationChannel(CH_INCOMING) == null) {
             nm.createNotificationChannel(
-                NotificationChannel(CH_INCOMING, "আসা কল", NotificationManager.IMPORTANCE_HIGH).apply {
+                NotificationChannel(CH_INCOMING, "Incoming calls", NotificationManager.IMPORTANCE_HIGH).apply {
                     setSound(null, null) // the phone's own ringtone is played by the system
                     enableVibration(false)
                 }
@@ -29,13 +29,13 @@ object CallNotifier {
         }
         if (nm.getNotificationChannel(CH_ONGOING) == null) {
             nm.createNotificationChannel(
-                NotificationChannel(CH_ONGOING, "চলমান কল", NotificationManager.IMPORTANCE_LOW).apply { setSound(null, null) }
+                NotificationChannel(CH_ONGOING, "Ongoing call", NotificationManager.IMPORTANCE_LOW).apply { setSound(null, null) }
             )
         }
     }
 
     private fun nameFor(context: Context, number: String?): String {
-        if (number.isNullOrBlank()) return "অজানা নম্বর"
+        if (number.isNullOrBlank()) return "Unknown number"
         return names.getOrPut(number) { CallHelper.lookup(context, number).name ?: number }
     }
 
@@ -61,17 +61,17 @@ object CallNotifier {
                 val n = Notification.Builder(context, CH_INCOMING)
                     .setSmallIcon(R.drawable.ic_call_small)
                     .setContentTitle(who)
-                    .setContentText("কল আসছে…")
+                    .setContentText("Incoming call…")
                     .setCategory(Notification.CATEGORY_CALL)
                     .setOngoing(true)
                     .setAutoCancel(false)
                     .setVisibility(Notification.VISIBILITY_PUBLIC)
                     .setFullScreenIntent(pi(context, 1, screen), true)
                     .setContentIntent(pi(context, 2, screen))
-                    .addAction(Notification.Action.Builder(icon(context), "কেটে দিন", bc(context, 3, CallActionReceiver.DECLINE)).build())
+                    .addAction(Notification.Action.Builder(icon(context), "Decline", bc(context, 3, CallActionReceiver.DECLINE)).build())
                     .addAction(
                         Notification.Action.Builder(
-                            icon(context), "ধরুন",
+                            icon(context), "Answer",
                             pi(context, 4, Intent(context, InCallActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK).putExtra(InCallActivity.EXTRA_ANSWER, true))
                         ).build()
                     )
@@ -83,9 +83,9 @@ object CallNotifier {
             if (call != null && call.st() != Call.STATE_DISCONNECTED) {
                 val who = nameFor(context, call.number())
                 val text = when (call.st()) {
-                    Call.STATE_DIALING, Call.STATE_CONNECTING -> "কল করা হচ্ছে…"
-                    Call.STATE_HOLDING -> "হোল্ডে আছে"
-                    else -> "কল চলছে"
+                    Call.STATE_DIALING, Call.STATE_CONNECTING -> "Calling…"
+                    Call.STATE_HOLDING -> "On hold"
+                    else -> "Ongoing call"
                 }
                 val b = Notification.Builder(context, CH_ONGOING)
                     .setSmallIcon(R.drawable.ic_call_small)
@@ -94,7 +94,7 @@ object CallNotifier {
                     .setCategory(Notification.CATEGORY_CALL)
                     .setOngoing(true)
                     .setContentIntent(pi(context, 2, screen))
-                    .addAction(Notification.Action.Builder(icon(context), "কল শেষ করুন", bc(context, 5, CallActionReceiver.HANGUP)).build())
+                    .addAction(Notification.Action.Builder(icon(context), "Hang up", bc(context, 5, CallActionReceiver.HANGUP)).build())
                 if (call.st() == Call.STATE_ACTIVE && call.details.connectTimeMillis > 0) {
                     b.setUsesChronometer(true).setWhen(call.details.connectTimeMillis).setShowWhen(true)
                 }

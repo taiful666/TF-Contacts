@@ -134,7 +134,7 @@ private fun Root(vm: MainViewModel, incomingDial: MutableStateFlow<String?>) {
     var askedOnce by remember { mutableStateOf(false) }
 
     val roleLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
-        vm.message.value = if (CallHelper.isDefaultDialer(ctx)) "TF Contacts এখন আপনার ডিফল্ট ফোন অ্যাপ" else null
+        vm.message.value = if (CallHelper.isDefaultDialer(ctx)) "TF Contacts is now your default phone app" else null
     }
     fun askDefaultDialer() {
         CallHelper.defaultDialerIntent(activity)?.let {
@@ -175,13 +175,13 @@ private fun Root(vm: MainViewModel, incomingDial: MutableStateFlow<String?>) {
     }
 
     val stack = remember { mutableStateListOf<Screen>(Screen.Home) }
-    var tab by remember { mutableStateOf(0) }
+    var tab by remember { mutableStateOf(1) } // 0 History, 1 Keypad, 2 Contacts
     var dialText by remember { mutableStateOf("") }
     val dialReq by incomingDial.collectAsState()
     LaunchedEffect(dialReq) {
         dialReq?.let {
             dialText = it
-            tab = 2
+            tab = 1
             while (stack.size > 1) stack.removeAt(stack.lastIndex)
             incomingDial.value = null
         }
@@ -249,7 +249,7 @@ private fun Root(vm: MainViewModel, incomingDial: MutableStateFlow<String?>) {
     if (msg != null) {
         AlertDialog(
             onDismissRequest = { vm.message.value = null },
-            confirmButton = { TextButton(onClick = { vm.message.value = null }) { Text("ঠিক আছে") } },
+            confirmButton = { TextButton(onClick = { vm.message.value = null }) { Text("OK") } },
             text = { Text(msg ?: "", fontSize = 16.sp) }
         )
     }
@@ -258,7 +258,7 @@ private fun Root(vm: MainViewModel, incomingDial: MutableStateFlow<String?>) {
         val accounts = remember { CallHelper.simAccounts(ctx) }
         AlertDialog(
             onDismissRequest = { simChoiceFor = null },
-            title = { Text("কোন সিম দিয়ে কল করবেন?") },
+            title = { Text("Call with which SIM?") },
             text = {
                 Column {
                     Text(number, fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
@@ -279,7 +279,7 @@ private fun Root(vm: MainViewModel, incomingDial: MutableStateFlow<String?>) {
                     }
                 }
             },
-            confirmButton = { TextButton(onClick = { simChoiceFor = null }) { Text("বাতিল") } }
+            confirmButton = { TextButton(onClick = { simChoiceFor = null }) { Text("Cancel") } }
         )
     }
 }
@@ -296,14 +296,14 @@ private fun PermissionScreen(askedOnce: Boolean, onGrant: () -> Unit) {
         Text("TF Contacts", fontSize = 28.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(12.dp))
         Text(
-            "আপনার ফোনের কন্টাক্ট দেখাতে ও কল করতে অনুমতি দরকার। সবকিছু শুধু আপনার ফোনেই থাকবে — অ্যাপটি ইন্টারনেট ব্যবহার করে না।",
+            "TF Contacts needs permission to show your contacts and make calls. Everything stays on your phone — the app does not use the internet.",
             textAlign = TextAlign.Center, fontSize = 16.sp
         )
         Spacer(Modifier.height(24.dp))
-        Button(onClick = onGrant) { Text(if (askedOnce) "সেটিংসে গিয়ে অনুমতি দিন" else "অনুমতি দিন", fontSize = 16.sp) }
+        Button(onClick = onGrant) { Text(if (askedOnce) "Allow in Settings" else "Allow", fontSize = 16.sp) }
         if (askedOnce) {
             Spacer(Modifier.height(10.dp))
-            Text("সেটিংস → Permissions → Contacts → Allow", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Settings → Permissions → Contacts → Allow", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
