@@ -80,6 +80,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -562,6 +570,12 @@ private fun DialerTab(
     val contacts by vm.contacts.collectAsState()
     val calls by vm.calls.collectAsState()
     var search by rememberSaveable { mutableStateOf("") }
+    var padOpen by rememberSaveable { mutableStateOf(true) }
+    val listState = rememberLazyListState()
+    // Scrolling the list hides the keypad so more contacts are visible (like iPhone / Google Phone)
+    LaunchedEffect(listState.isScrollInProgress) {
+        if (listState.isScrollInProgress && (listState.canScrollForward || listState.canScrollBackward)) padOpen = false
+    }
     val toneOn = remember { Settings.System.getInt(ctx.contentResolver, Settings.System.DTMF_TONE_WHEN_DIALING, 1) == 1 }
     val tone = remember { try { ToneGenerator(AudioManager.STREAM_DTMF, 70) } catch (_: Exception) { null } }
     DisposableEffect(Unit) { onDispose { tone?.release() } }
@@ -618,7 +632,8 @@ private fun DialerTab(
             IconButton(onTools) { Icon(Icons.Filled.Settings, "Settings & tools") }
         }
 
-        LazyColumn(Modifier.weight(1f).fillMaxWidth()) {
+        Box(Modifier.weight(1f).fillMaxWidth()) {
+        LazyColumn(Modifier.fillMaxSize(), state = listState) {
             when {
                 search.isNotBlank() -> {
                     if (searchResults.isEmpty()) item { Text("Nothing found for \"$search\"", Modifier.padding(24.dp)) }
@@ -655,58 +670,74 @@ private fun DialerTab(
             }
         }
 
-        if (search.isBlank()) {
-            Surface(color = MaterialTheme.colorScheme.surfaceContainer, shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)) {
-                Column(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    // Number display
-                    Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp).height(54.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Box(Modifier.size(48.dp).clip48().clickable(enabled = text.isNotEmpty()) { onNew(text) }, contentAlignment = Alignment.Center) {
-                            if (text.isNotEmpty()) Icon(Icons.Filled.PersonAdd, "Save contact", tint = MaterialTheme.colorScheme.primary)
-                        }
+        if (!padOpen && search.isBlank()) {
+            FloatingActionButton(
+                onClick = { padOpen = true },
+                containerColor = TFGreen, contentColor = Color.White, shape = CircleShape,
+                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 16.dp).size(64.dp)
+            ) { Icon(Icons.Filled.Dialpad, "Show keypad", modifier = Modifier.size(28.dp)) }
+        }
+        }
+
+        AnimatedVisibility(
+            visible = padOpen && search.isBlank(),
+            enter = slideInVertically { it } + fadeIn(),
+            exit = slideOutVertically { it } + fadeOut()
+        ) {
+            // iPhone-style keypad: round keys, big light digits, green round call button
+            Column(Modifier.fillMaxWidth().padding(bottom = 10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Box(Modifier.fillMaxWidth().height(42.dp).padding(horizontal = 24.dp), contentAlignment = Alignment.Center) {
+                    Text(
+                        text, textAlign = TextAlign.Center, maxLines = 1,
+                        fontSize = when { text.length > 16 -> 24.sp; text.length > 12 -> 30.sp; else -> 36.sp },
+                        fontWeight = FontWeight.Light
+                    )
+                }
+                Box(Modifier.height(20.dp), contentAlignment = Alignment.Center) {
+                    if (text.isNotEmpty()) {
                         Text(
-                            text, Modifier.weight(1f), textAlign = TextAlign.Center, maxLines = 1,
-                            fontSize = when { text.length > 16 -> 22.sp; text.length > 12 -> 28.sp; else -> 34.sp },
-                            fontWeight = FontWeight.Medium
+                            "Add Number", color = MaterialTheme.colorScheme.primary, fontSize = 15.sp,
+                            modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable { onNew(text) }.padding(horizontal = 8.dp, vertical = 2.dp)
                         )
-                        Box(
-                            Modifier.size(48.dp).clip48()
-                                .combinedClickable(onClick = { if (text.isNotEmpty()) onText(text.dropLast(1)) }, onLongClick = { onText("") }),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            if (text.isNotEmpty()) Icon(Icons.AutoMirrored.Filled.Backspace, "Delete", tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
                     }
-                    HorizontalDivider(Modifier.padding(horizontal = 24.dp, vertical = 4.dp), color = MaterialTheme.colorScheme.outlineVariant)
-                    padKeys.chunked(3).forEach { row ->
-                        Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
-                            row.forEach { (k, letters) ->
-                                Box(
-                                    Modifier.padding(vertical = 4.dp).size(width = 92.dp, height = 58.dp)
-                                        .clip(RoundedCornerShape(29.dp))
-                                        .background(MaterialTheme.colorScheme.surfaceContainerHighest)
-                                        .combinedClickable(onClick = { press(k) }, onLongClick = { if (k == "0") press("+") }),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                        Text(k, fontSize = 26.sp, fontWeight = FontWeight.Medium)
-                                        if (letters.isNotEmpty()) Text(letters, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, letterSpacing = 1.sp)
-                                    }
+                }
+                padKeys.chunked(3).forEach { row ->
+                    Row(Modifier.padding(vertical = 3.dp), horizontalArrangement = Arrangement.spacedBy(28.dp)) {
+                        row.forEach { (k, letters) ->
+                            Box(
+                                Modifier.size(64.dp).clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+                                    .combinedClickable(onClick = { press(k) }, onLongClick = { if (k == "0") press("+") }),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(k, fontSize = if (k == "*") 32.sp else 28.sp, fontWeight = FontWeight.Normal, lineHeight = 32.sp)
+                                    if (letters.isNotEmpty()) Text(letters, fontSize = 9.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant, letterSpacing = 2.sp, lineHeight = 10.sp)
                                 }
                             }
                         }
                     }
-                    Spacer(Modifier.height(8.dp))
-                    // Call button in the middle, easy to reach with the thumb
+                }
+                Spacer(Modifier.height(6.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(28.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(64.dp).clip(CircleShape).clickable { padOpen = false }, contentAlignment = Alignment.Center) {
+                        Icon(Icons.Filled.KeyboardArrowDown, "Hide keypad", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(30.dp))
+                    }
                     Box(
-                        Modifier.size(width = 150.dp, height = 62.dp)
-                            .clip(RoundedCornerShape(31.dp))
-                            .background(TFGreen)
+                        Modifier.size(64.dp).clip(CircleShape).background(TFGreen)
                             .clickable {
                                 if (text.isNotEmpty()) onCall(text)
                                 else calls.firstOrNull { it.type == CallLog.Calls.OUTGOING_TYPE }?.let { onText(it.number) }
                             },
                         contentAlignment = Alignment.Center
-                    ) { Icon(Icons.Filled.Call, "Call", tint = Color.White, modifier = Modifier.size(30.dp)) }
+                    ) { Icon(Icons.Filled.Call, "Call", tint = Color.White, modifier = Modifier.size(32.dp)) }
+                    Box(
+                        Modifier.size(64.dp).clip(CircleShape)
+                            .combinedClickable(enabled = text.isNotEmpty(), onClick = { onText(text.dropLast(1)) }, onLongClick = { onText("") }),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (text.isNotEmpty()) Icon(Icons.AutoMirrored.Filled.Backspace, "Delete", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(28.dp))
+                    }
                 }
             }
         }

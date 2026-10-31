@@ -1,15 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- TF Dialer logo: big phone handset, "TF", and a small contact badge in the corner -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp" android:height="108dp"
     android:viewportWidth="108" android:viewportHeight="108">
-    <group android:translateX="24" android:translateY="22" android:scaleX="2.3" android:scaleY="2.3">
+    <group android:translateX="21" android:translateY="25" android:scaleX="2.05" android:scaleY="2.05">
         <path android:fillColor="#FFFFFF"
-            android:pathData="M12,12c2.21,0 4,-1.79 4,-4s-1.79,-4 -4,-4 -4,1.79 -4,4 1.79,4 4,4zM12,14c-2.67,0 -8,1.34 -8,4v2h16v-2c0,-2.66 -5.33,-4 -8,-4z" />
+            android:pathData="M6.62,10.79c1.44,2.83 3.76,5.14 6.59,6.59l2.2,-2.2c0.27,-0.27 0.67,-0.36 1.02,-0.24 1.12,0.37 2.33,0.57 3.57,0.57 0.55,0 1,0.45 1,1V20c0,0.55 -0.45,1 -1,1 -9.39,0 -17,-7.61 -17,-17 0,-0.55 0.45,-1 1,-1h3.5c0.55,0 1,0.45 1,1 0,1.25 0.2,2.45 0.57,3.57 0.11,0.35 0.03,0.74 -0.25,1.02l-2.2,2.2z" />
     </group>
-    <path android:fillColor="#22C55E"
-        android:pathData="M71,71m-15,0a15,15 0,1 1,30 0a15,15 0,1 1,-30 0" />
-    <group android:translateX="59" android:translateY="59" android:scaleX="1.0" android:scaleY="1.0">
-        <path android:fillColor="#FFFFFF"
-            android:pathData="M6.62,10.79c1.44,2.83 3.76,5.14 6.59,6.59l2.2,-2.2c0.27,-0.27 0.67,-0.36 1.02,-0.24 1.12,0.37 2.33,0.57 3.570,0.57 0.55,0 1,0.45 1,1V20c0,0.55 -0.45,1 -1,1 -9.39,0 -17,-7.61 -17,-17 0,-0.55 0.45,-1 1,-1h3.5c0.55,0 1,0.45 1,1 0,1.25 0.2,2.45 0.57,3.57 0.11,0.35 0.03,0.74 -0.25,1.02l-2.2,2.2z" />
+    <!-- T -->
+    <path android:fillColor="#FFFFFF" android:pathData="M56.5,28h12.5v3.5h-4.5v13.5h-3.5v-13.5h-4.5z" />
+    <!-- F -->
+    <path android:fillColor="#FFFFFF" android:pathData="M71.5,28h10.5v3.5h-7v3.6h6v3.5h-6v6.4h-3.5z" />
+    <!-- contact badge -->
+    <path android:fillColor="#FFFFFF" android:strokeColor="#0B8F45" android:strokeWidth="2.4"
+        android:pathData="M74,64a10,10 0,1 1,0 20a10,10 0,1 1,0 -20z" />
+    <group android:translateX="66.3" android:translateY="65.6" android:scaleX="0.64" android:scaleY="0.64">
+        <path android:fillColor="#0B8F45"
+            android:pathData="M12,12c2.21,0 4,-1.79 4,-4s-1.79,-4 -4,-4 -4,1.79 -4,4 1.79,4 4,4zM12,14c-2.67,0 -8,1.34 -8,4v2h16v-2c0,-2.66 -5.33,-4 -8,-4z" />
     </group>
 </vector>
