@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -478,8 +479,15 @@ private fun RecentsTab(vm: MainViewModel, onCall: (String) -> Unit, onOpen: (Lon
     }
     var toDelete by remember { mutableStateOf<CallEntry?>(null) }
     var clearAll by remember { mutableStateOf(false) }
-    var onlyMissed by rememberSaveable { mutableStateOf(false) }
-    val shown = remember(calls, onlyMissed) { if (onlyMissed) calls.filter { it.type == CallLog.Calls.MISSED_TYPE } else calls }
+    var filter by rememberSaveable { mutableIntStateOf(0) } // 0 all, 1 missed, 2 received, 3 dialed
+    val shown = remember(calls, filter) {
+        when (filter) {
+            1 -> calls.filter { it.type == CallLog.Calls.MISSED_TYPE || it.type == CallLog.Calls.REJECTED_TYPE }
+            2 -> calls.filter { it.type == CallLog.Calls.INCOMING_TYPE }
+            3 -> calls.filter { it.type == CallLog.Calls.OUTGOING_TYPE }
+            else -> calls
+        }
+    }
 
     Scaffold(topBar = {
         TopAppBar(
@@ -488,9 +496,11 @@ private fun RecentsTab(vm: MainViewModel, onCall: (String) -> Unit, onOpen: (Lon
         )
     }) { pad ->
         Column(Modifier.padding(pad)) {
-            Row(Modifier.padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                FilterChip(!onlyMissed, { onlyMissed = false }, { Text("All") })
-                FilterChip(onlyMissed, { onlyMissed = true }, { Text("Missed") })
+            Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                FilterChip(filter == 0, { filter = 0 }, { Text("All") })
+                FilterChip(filter == 1, { filter = 1 }, { Text("Missed") }, leadingIcon = { Icon(Icons.AutoMirrored.Filled.CallMissed, null, Modifier.size(16.dp), tint = CallMissedRed) })
+                FilterChip(filter == 2, { filter = 2 }, { Text("Received") }, leadingIcon = { Icon(Icons.AutoMirrored.Filled.CallReceived, null, Modifier.size(16.dp), tint = CallReceivedBlue) })
+                FilterChip(filter == 3, { filter = 3 }, { Text("Dialed") }, leadingIcon = { Icon(Icons.AutoMirrored.Filled.CallMade, null, Modifier.size(16.dp), tint = CallDialedGreen) })
             }
             if (shown.isEmpty()) {
                 Text("No calls", Modifier.padding(32.dp).fillMaxWidth(), textAlign = TextAlign.Center)
@@ -499,35 +509,43 @@ private fun RecentsTab(vm: MainViewModel, onCall: (String) -> Unit, onOpen: (Lon
                 items(shown, key = { it.id }) { e ->
                     val c = byKey[Normalize.phoneKey(e.number)]
                     val name = c?.name ?: e.cachedName?.takeIf { it.isNotBlank() } ?: e.number.ifBlank { "Private number" }
-                    val (icon, color) = when (e.type) {
-                        CallLog.Calls.INCOMING_TYPE -> Icons.AutoMirrored.Filled.CallReceived to TFGreen
-                        CallLog.Calls.OUTGOING_TYPE -> Icons.AutoMirrored.Filled.CallMade to TFBlue
-                        CallLog.Calls.MISSED_TYPE -> Icons.AutoMirrored.Filled.CallMissed to TFRed
-                        CallLog.Calls.REJECTED_TYPE -> Icons.AutoMirrored.Filled.CallMissed to Color(0xFFF59E0B)
-                        CallLog.Calls.BLOCKED_TYPE -> Icons.Filled.Block to Color.Gray
-                        else -> Icons.Filled.Call to Color.Gray
-                    }
+                    val t = callTypeStyle(e.type)
                     Row(
                         Modifier.fillMaxWidth()
                             .combinedClickable(onClick = { if (e.number.isNotBlank()) onCall(e.number) }, onLongClick = { toDelete = e })
                             .padding(horizontal = 16.dp, vertical = 9.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Avatar(name, c?.thumbUri, 44.dp)
+                        // Photo with a coloured arrow badge: red = missed, blue = received, green = dialed
+                        Box {
+                            Avatar(name, c?.thumbUri, 46.dp)
+                            Box(
+                                Modifier.align(Alignment.BottomEnd).offset(x = 3.dp, y = 3.dp).size(20.dp)
+                                    .clip(CircleShape).background(MaterialTheme.colorScheme.background).padding(2.dp)
+                                    .clip(CircleShape).background(t.color),
+                                contentAlignment = Alignment.Center
+                            ) { Icon(t.icon, t.label, Modifier.size(12.dp), tint = Color.White) }
+                        }
                         Spacer(Modifier.width(14.dp))
                         Column(Modifier.weight(1f)) {
-                            Text(
-                                name + if (e.count > 1) " (${e.count})" else "",
-                                fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                                color = if (e.type == CallLog.Calls.MISSED_TYPE) TFRed else MaterialTheme.colorScheme.onSurface,
-                                fontWeight = FontWeight.Medium
-                            )
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(icon, null, Modifier.size(15.dp), tint = color)
-                                Spacer(Modifier.width(5.dp))
                                 Text(
-                                    relativeTime(e.date) + (durationText(e.duration).let { if (it.isEmpty()) "" else " • $it" }),
-                                    fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    name, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                    color = if (e.type == CallLog.Calls.MISSED_TYPE) t.color else MaterialTheme.colorScheme.onSurface,
+                                    fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f, fill = false)
+                                )
+                                if (e.count > 1) Text(" (${e.count})", fontSize = 15.sp, color = t.color, fontWeight = FontWeight.Bold)
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(t.icon, null, Modifier.size(15.dp), tint = t.color)
+                                Spacer(Modifier.width(4.dp))
+                                Text(
+                                    t.label + if (e.count > 1) " ${e.count} times" else "",
+                                    fontSize = 13.sp, color = t.color, fontWeight = FontWeight.SemiBold
+                                )
+                                Text(
+                                    " • " + relativeTime(e.date) + (durationText(e.duration).let { if (it.isEmpty()) "" else " • $it" }),
+                                    fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis
                                 )
                             }
                         }
@@ -678,9 +696,16 @@ private fun DialerTab(
                     if (recent.isNotEmpty()) item { SectionHeader("Recent") }
                     items(recent, key = { "r" + it.id }) { e ->
                         val c = byKey[Normalize.phoneKey(e.number)]
+                        val t = callTypeStyle(e.type)
+                        val subPlain = t.label + " • " + (if (c != null) e.number + " • " else "") + relativeTime(e.date)
                         PickRow(
                             c?.name ?: e.cachedName?.takeIf { it.isNotBlank() } ?: e.number, c?.thumbUri,
-                            (if (c != null) e.number + " • " else "") + relativeTime(e.date),
+                            subPlain,
+                            subText = androidx.compose.ui.text.buildAnnotatedString {
+                                pushStyle(androidx.compose.ui.text.SpanStyle(color = t.color, fontWeight = FontWeight.SemiBold))
+                                append(t.label); pop()
+                                append(subPlain.removePrefix(t.label))
+                            },
                             onClick = { onCall(e.number) },
                             onInfo = { if (c != null) onOpen(c.id) else onNew(e.number) }
                         )
@@ -832,4 +857,21 @@ private fun TabItem(selected: Boolean, icon: androidx.compose.ui.graphics.vector
         ) { Icon(icon, label, tint = if (selected) cs.onPrimaryContainer else cs.onSurfaceVariant, modifier = Modifier.size(22.dp)) }
         Text(label, fontSize = 11.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal, color = if (selected) cs.onSurface else cs.onSurfaceVariant)
     }
+}
+
+
+// Colours for call types (same everywhere): missed = red, received = blue, dialed = green
+val CallMissedRed = Color(0xFFE11D48)
+val CallReceivedBlue = Color(0xFF2563EB)
+val CallDialedGreen = Color(0xFF16A34A)
+
+data class CallTypeStyle(val icon: androidx.compose.ui.graphics.vector.ImageVector, val color: Color, val label: String)
+
+fun callTypeStyle(type: Int): CallTypeStyle = when (type) {
+    CallLog.Calls.INCOMING_TYPE -> CallTypeStyle(Icons.AutoMirrored.Filled.CallReceived, CallReceivedBlue, "Received")
+    CallLog.Calls.OUTGOING_TYPE -> CallTypeStyle(Icons.AutoMirrored.Filled.CallMade, CallDialedGreen, "Dialed")
+    CallLog.Calls.MISSED_TYPE -> CallTypeStyle(Icons.AutoMirrored.Filled.CallMissed, CallMissedRed, "Missed")
+    CallLog.Calls.REJECTED_TYPE -> CallTypeStyle(Icons.AutoMirrored.Filled.CallMissed, Color(0xFFF59E0B), "Declined")
+    CallLog.Calls.BLOCKED_TYPE -> CallTypeStyle(Icons.Filled.Block, Color.Gray, "Blocked")
+    else -> CallTypeStyle(Icons.Filled.Call, Color.Gray, "Call")
 }
