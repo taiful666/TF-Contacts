@@ -375,6 +375,17 @@ private fun AppearanceCard() {
                 Column { Text("Full screen"); Text("The whole call screen opens, even while using the phone", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
             Text("When the phone is locked, the full call screen always shows.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
+            Spacer(Modifier.height(14.dp))
+            val fullPhoto by ThemePrefs.fullCallerPhoto.collectAsState()
+            Text("Caller photo on the call screen", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+            Row(Modifier.fillMaxWidth().clickable { ThemePrefs.setFullCallerPhoto(ctx, false) }, verticalAlignment = Alignment.CenterVertically) {
+                RadioButton(!fullPhoto, { ThemePrefs.setFullCallerPhoto(ctx, false) })
+                Text("Small round photo")
+            }
+            Row(Modifier.fillMaxWidth().clickable { ThemePrefs.setFullCallerPhoto(ctx, true) }, verticalAlignment = Alignment.CenterVertically) {
+                RadioButton(fullPhoto, { ThemePrefs.setFullCallerPhoto(ctx, true) })
+                Column { Text("Full photo as background"); Text("The whole photo fills the screen behind the buttons", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            }
         }
     }
 }

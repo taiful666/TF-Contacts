@@ -130,6 +130,18 @@ class InCallActivity : ComponentActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        CallNotifier.screenVisible = true
+        CallNotifier.update(this)
+    }
+
+    override fun onPause() {
+        CallNotifier.screenVisible = false
+        CallNotifier.update(this)
+        super.onPause()
+    }
+
     override fun onDestroy() {
         setProximity(false)
         super.onDestroy()
@@ -171,6 +183,15 @@ private fun CallScreen(onFinish: () -> Unit, onProximity: (Boolean) -> Unit) {
         onProximity(state in listOf(Call.STATE_ACTIVE, Call.STATE_DIALING, Call.STATE_CONNECTING, Call.STATE_HOLDING) && !speakerOn && !btOn)
     }
 
+    // Caller photo as a full-screen background (if chosen in Settings → Appearance)
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val fullPhoto by com.taiful.tfcontacts.ui.ThemePrefs.fullCallerPhoto.collectAsState()
+    val bgNumber = call?.number()
+    var bgPhotoUri by remember(bgNumber) { mutableStateOf<String?>(null) }
+    LaunchedEffect(bgNumber) { bgPhotoUri = withContext(Dispatchers.IO) { CallHelper.lookup(ctx, bgNumber).photo } }
+    val bgPhoto = com.taiful.tfcontacts.ui.rememberPhoto(if (fullPhoto) bgPhotoUri else null, 1400)
+    val showBgPhoto = fullPhoto && bgPhoto != null && call != null && !ended
+
     Box(
         Modifier
             .fillMaxSize()
@@ -179,8 +200,20 @@ private fun CallScreen(onFinish: () -> Unit, onProximity: (Boolean) -> Unit) {
                 androidx.compose.ui.graphics.lerp(theme.seed, Color.Black, 0.55f),
                 androidx.compose.ui.graphics.lerp(theme.seed, Color.Black, 0.82f)
             )))
-            .safeDrawingPadding()
     ) {
+        if (showBgPhoto && bgPhoto != null) {
+            androidx.compose.foundation.Image(
+                bgPhoto, null, Modifier.fillMaxSize(),
+                contentScale = androidx.compose.ui.layout.ContentScale.Crop
+            )
+            // darker at top and bottom so the name and buttons stay readable
+            Box(
+                Modifier.fillMaxSize().background(
+                    Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.65f), Color.Black.copy(alpha = 0.05f), Color.Black.copy(alpha = 0.10f), Color.Black.copy(alpha = 0.80f)))
+                )
+            )
+        }
+        Box(Modifier.fillMaxSize().safeDrawingPadding()) {
         if (call == null || ended) {
             Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
                 Icon(Icons.Filled.CallEnd, null, tint = TFRed, modifier = Modifier.size(56.dp))
@@ -190,7 +223,8 @@ private fun CallScreen(onFinish: () -> Unit, onProximity: (Boolean) -> Unit) {
         } else if (state == Call.STATE_SELECT_PHONE_ACCOUNT) {
             SimChooser(call)
         } else {
-            ActiveCall(call, state, calls, audio)
+            ActiveCall(call, state, calls, audio, hideAvatar = showBgPhoto)
+        }
         }
     }
 }
@@ -223,7 +257,7 @@ private fun SimChooser(call: Call) {
 }
 
 @Composable
-private fun ActiveCall(call: Call, state: Int, calls: List<Call>, audio: CallAudioState?) {
+private fun ActiveCall(call: Call, state: Int, calls: List<Call>, audio: CallAudioState?, hideAvatar: Boolean = false) {
     val ctx = androidx.compose.ui.platform.LocalContext.current
     val number = call.number()
     var name by remember(number) { mutableStateOf<String?>(null) }
@@ -296,9 +330,11 @@ private fun ActiveCall(call: Call, state: Int, calls: List<Call>, audio: CallAud
         Spacer(Modifier.weight(1f))
 
         if (!showKeypad) {
-            Box(contentAlignment = Alignment.Center) {
-                if (state == Call.STATE_RINGING) Pulse()
-                Avatar(title, photo, 150.dp, maxPx = 600)
+            if (!hideAvatar) {
+                Box(contentAlignment = Alignment.Center) {
+                    if (state == Call.STATE_RINGING) Pulse()
+                    Avatar(title, photo, 150.dp, maxPx = 600)
+                }
             }
         } else {
             Text(dtmf, color = Color.White, fontSize = 28.sp, maxLines = 1)

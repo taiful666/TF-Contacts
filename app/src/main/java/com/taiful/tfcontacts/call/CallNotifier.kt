@@ -17,6 +17,9 @@ object CallNotifier {
 
     private val names = HashMap<String, String>()
 
+    /** True while the full call screen is on top: then the small pop-up banner is not shown. */
+    @Volatile var screenVisible = false
+
     private fun channels(context: Context) {
         val nm = context.getSystemService(NotificationManager::class.java)
         if (nm.getNotificationChannel(CH_INCOMING) == null) {
@@ -56,6 +59,21 @@ object CallNotifier {
             val nm = context.getSystemService(NotificationManager::class.java)
             val ringing = CallManager.ringing()
             val screen = Intent(context, InCallActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            if (ringing != null && screenVisible) {
+                // Call screen already showing: keep only a quiet notification (no pop-up banner on top)
+                nm.cancel(ID)
+                val n = Notification.Builder(context, CH_ONGOING)
+                    .setSmallIcon(R.drawable.ic_call_small)
+                    .setContentTitle(nameFor(context, ringing.number()))
+                    .setContentText("Incoming call…")
+                    .setCategory(Notification.CATEGORY_CALL)
+                    .setOngoing(true)
+                    .setContentIntent(pi(context, 2, screen))
+                    .build()
+                nm.notify(ID + 1, n)
+                return
+            }
+            nm.cancel(ID + 1)
             if (ringing != null) {
                 val who = nameFor(context, ringing.number())
                 val n = Notification.Builder(context, CH_INCOMING)
@@ -101,6 +119,7 @@ object CallNotifier {
                 nm.notify(ID, b.build())
             } else {
                 nm.cancel(ID)
+                nm.cancel(ID + 1)
                 if (CallManager.calls.value.isEmpty()) names.clear()
             }
         } catch (_: Exception) {
@@ -110,6 +129,7 @@ object CallNotifier {
     fun cancelAll(context: Context) {
         try {
             context.getSystemService(NotificationManager::class.java).cancel(ID)
+            context.getSystemService(NotificationManager::class.java).cancel(ID + 1)
         } catch (_: Exception) {
         }
     }

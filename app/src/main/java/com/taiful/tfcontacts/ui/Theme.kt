@@ -42,6 +42,8 @@ object ThemePrefs {
     val mode = MutableStateFlow(ThemeMode.LIGHT)
     /** Incoming calls: false = small banner at the top, true = full screen. */
     val fullScreenIncoming = MutableStateFlow(false)
+    /** Call screen: false = photo in a small circle, true = full photo as the background. */
+    val fullCallerPhoto = MutableStateFlow(false)
     private var loaded = false
 
     private fun p(c: Context) = c.getSharedPreferences("tf", Context.MODE_PRIVATE)
@@ -53,10 +55,12 @@ object ThemePrefs {
         theme.value = AppTheme.entries.firstOrNull { it.name == p.getString("theme", null) } ?: AppTheme.OCEAN
         mode.value = ThemeMode.entries.firstOrNull { it.name == p.getString("mode", null) } ?: ThemeMode.LIGHT
         fullScreenIncoming.value = p.getBoolean("fullIncoming", false)
+        fullCallerPhoto.value = p.getBoolean("fullPhoto", false)
     }
 
     fun setTheme(c: Context, t: AppTheme) { theme.value = t; p(c).edit().putString("theme", t.name).apply() }
     fun setMode(c: Context, m: ThemeMode) { mode.value = m; p(c).edit().putString("mode", m.name).apply() }
+    fun setFullCallerPhoto(c: Context, on: Boolean) { fullCallerPhoto.value = on; p(c).edit().putBoolean("fullPhoto", on).apply() }
     fun setFullScreenIncoming(c: Context, on: Boolean) { fullScreenIncoming.value = on; p(c).edit().putBoolean("fullIncoming", on).apply() }
 }
 
