@@ -151,3 +151,60 @@ fun durationText(sec: Long): String {
     val s = sec % 60
     return if (h > 0) "%d:%02d:%02d".format(h, m, s) else "%d:%02d".format(m, s)
 }
+
+// ---------------------------------------------------------------- search highlight
+
+@androidx.compose.runtime.Composable
+fun highlightStyle(): androidx.compose.ui.text.SpanStyle = androidx.compose.ui.text.SpanStyle(
+    color = MaterialTheme.colorScheme.primary,
+    fontWeight = FontWeight.Bold,
+    background = MaterialTheme.colorScheme.primary.copy(alpha = 0.22f)
+)
+
+private fun build(text: String, ranges: List<IntRange>, style: androidx.compose.ui.text.SpanStyle): androidx.compose.ui.text.AnnotatedString {
+    val b = androidx.compose.ui.text.AnnotatedString.Builder(text)
+    ranges.forEach { r -> if (r.first >= 0 && r.last < text.length && r.first <= r.last) b.addStyle(style, r.first, r.last + 1) }
+    return b.toAnnotatedString()
+}
+
+/** Marks every place where [query] appears in [text] (ignoring case). Numbers also match ignoring spaces/dashes. */
+fun highlight(text: String, query: String, style: androidx.compose.ui.text.SpanStyle): androidx.compose.ui.text.AnnotatedString {
+    val q = query.trim()
+    if (q.isEmpty() || text.isEmpty()) return androidx.compose.ui.text.AnnotatedString(text)
+    val ranges = mutableListOf<IntRange>()
+    var i = text.indexOf(q, ignoreCase = true)
+    while (i >= 0) {
+        ranges += i until i + q.length
+        i = text.indexOf(q, i + q.length, ignoreCase = true)
+    }
+    if (ranges.isEmpty()) {
+        val qd = com.taiful.tfcontacts.data.Normalize.digits(q)
+        val numberish = q.all { it.isDigit() || it in "+-() " || it in '০'..'৯' }
+        if (numberish && qd.isNotEmpty()) ranges += mapped(text, qd) { c -> com.taiful.tfcontacts.data.Normalize.digits(c.toString()).firstOrNull() }
+    }
+    return build(text, ranges, style)
+}
+
+/** Marks the letters of a name that match digits typed on the keypad (2=ABC, 3=DEF …). */
+fun highlightT9(text: String, digits: String, style: androidx.compose.ui.text.SpanStyle): androidx.compose.ui.text.AnnotatedString {
+    if (digits.isEmpty()) return androidx.compose.ui.text.AnnotatedString(text)
+    return build(text, mapped(text, digits) { c ->
+        val t = com.taiful.tfcontacts.data.Normalize.t9(c.toString())
+        t.firstOrNull()?.takeIf { it != ' ' }
+    }, style)
+}
+
+/** Converts each character with [conv], finds [needle] in the converted string, maps the hits back to the original text. */
+private fun mapped(text: String, needle: String, conv: (Char) -> Char?): List<IntRange> {
+    val sb = StringBuilder()
+    val idx = ArrayList<Int>()
+    text.forEachIndexed { i, c -> conv(c)?.let { sb.append(it); idx += i } }
+    val s = sb.toString()
+    val out = mutableListOf<IntRange>()
+    var p = s.indexOf(needle)
+    while (p >= 0) {
+        out += idx[p]..idx[p + needle.length - 1]
+        p = s.indexOf(needle, p + needle.length)
+    }
+    return out
+}

@@ -398,6 +398,7 @@ private fun ContactRow(
     onClick: () -> Unit, onLong: () -> Unit, onCall: (String) -> Unit,
 ) {
     val sub = remember(c, query) { subtitle(c, query) }
+    val hl = highlightStyle()
     Row(
         Modifier
             .fillMaxWidth()
@@ -417,7 +418,7 @@ private fun ContactRow(
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(c.name, fontSize = 16.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                Text(highlight(c.name, query, hl), fontSize = 16.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
                 if (c.starred) {
                     Spacer(Modifier.width(4.dp))
                     Icon(Icons.Filled.Star, null, Modifier.size(14.dp), tint = Color(0xFFF59E0B))
@@ -425,7 +426,7 @@ private fun ContactRow(
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (sub.isNotEmpty()) {
-                    Text(sub, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                    Text(highlight(sub, query, hl), fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
                     Spacer(Modifier.width(6.dp))
                 }
                 c.raws.map { it.kind to it.label }.distinct().take(2).forEach { (k, l) ->
@@ -572,6 +573,7 @@ private fun DialerTab(
     val calls by vm.calls.collectAsState()
     var search by rememberSaveable { mutableStateOf("") }
     var padOpen by rememberSaveable { mutableStateOf(true) }
+    val hl = highlightStyle()
     val listState = rememberLazyListState()
     // Scrolling the list hides the keypad so more contacts are visible (like iPhone / Google Phone)
     LaunchedEffect(listState.isScrollInProgress) {
@@ -640,13 +642,21 @@ private fun DialerTab(
                     if (searchResults.isEmpty()) item { Text("Nothing found for \"$search\"", Modifier.padding(24.dp)) }
                     items(searchResults, key = { "s" + it.id }) { c ->
                         val num = c.phones.firstOrNull()
-                        PickRow(c.name, c.thumbUri, num?.number ?: c.emails.firstOrNull() ?: "", onClick = { onOpen(c.id) }, onCall = num?.let { { onCall(it.number) } })
+                        val sub = subtitle(c, search)
+                        PickRow(
+                            c.name, c.thumbUri, sub, onClick = { onOpen(c.id) }, onCall = num?.let { { onCall(it.number) } },
+                            nameText = highlight(c.name, search, hl), subText = highlight(sub, search, hl)
+                        )
                     }
                 }
                 text.isNotEmpty() -> {
                     items(suggestions, key = { "t" + it.id }) { c ->
                         val num = c.phones.firstOrNull { Normalize.digits(it.number).contains(Normalize.digits(text)) } ?: c.phones.firstOrNull()
-                        PickRow(c.name, c.thumbUri, num?.number ?: "", onClick = { num?.let { onCall(it.number) } }, onInfo = { onOpen(c.id) })
+                        val d = Normalize.digits(text)
+                        PickRow(
+                            c.name, c.thumbUri, num?.number ?: "", onClick = { num?.let { onCall(it.number) } }, onInfo = { onOpen(c.id) },
+                            nameText = highlightT9(c.name, d, hl), subText = highlight(num?.number ?: "", d, hl)
+                        )
                     }
                     if (suggestions.isEmpty()) {
                         item {
@@ -760,7 +770,10 @@ private fun DialerTab(
 }
 
 @Composable
-private fun PickRow(name: String, photo: String?, sub: String, onClick: () -> Unit, onCall: (() -> Unit)? = null, onInfo: (() -> Unit)? = null) {
+private fun PickRow(
+    name: String, photo: String?, sub: String, onClick: () -> Unit, onCall: (() -> Unit)? = null, onInfo: (() -> Unit)? = null,
+    nameText: androidx.compose.ui.text.AnnotatedString? = null, subText: androidx.compose.ui.text.AnnotatedString? = null,
+) {
     Row(
         Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 18.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -768,8 +781,8 @@ private fun PickRow(name: String, photo: String?, sub: String, onClick: () -> Un
         Avatar(name, photo, 40.dp)
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
-            Text(name, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            if (sub.isNotEmpty()) Text(sub, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(nameText ?: androidx.compose.ui.text.AnnotatedString(name), fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (sub.isNotEmpty()) Text(subText ?: androidx.compose.ui.text.AnnotatedString(sub), fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         if (onCall != null) IconButton(onCall) { Icon(Icons.Filled.Call, "Call", tint = TFGreen) }
         if (onInfo != null) IconButton(onInfo) { Icon(Icons.Filled.Info, "Details", tint = MaterialTheme.colorScheme.primary) }
