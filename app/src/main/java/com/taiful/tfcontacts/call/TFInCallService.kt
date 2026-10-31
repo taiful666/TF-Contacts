@@ -16,6 +16,7 @@ class TFInCallService : InCallService() {
     override fun onDestroy() {
         if (CallManager.service === this) CallManager.service = null
         CallNotifier.cancelAll(this)
+        CallRecorder.stop()
         super.onDestroy()
     }
 

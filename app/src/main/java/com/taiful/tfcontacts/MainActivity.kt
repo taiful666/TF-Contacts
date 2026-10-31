@@ -72,6 +72,7 @@ sealed interface Screen {
     data class Edit(val id: Long?, val number: String? = null) : Screen
     data object Duplicates : Screen
     data object Tools : Screen
+    data object Recordings : Screen
 }
 
 class MainActivity : ComponentActivity() {
@@ -127,6 +128,7 @@ private val allPerms: Array<String> = buildList {
     add(Manifest.permission.READ_CALL_LOG)
     add(Manifest.permission.WRITE_CALL_LOG)
     add(Manifest.permission.READ_PHONE_STATE)
+    add(Manifest.permission.RECORD_AUDIO)
     if (Build.VERSION.SDK_INT >= 33) add(Manifest.permission.POST_NOTIFICATIONS)
 }.toTypedArray()
 
@@ -265,7 +267,8 @@ private fun Root(vm: MainViewModel, incomingDial: MutableStateFlow<String?>, ope
             }
         })
         Screen.Duplicates -> DuplicatesScreen(vm, onBack = pop)
-        Screen.Tools -> ToolsScreen(vm, onBack = pop, onDuplicates = { push(Screen.Duplicates) }, onMakeDefault = { askDefaultDialer() })
+        Screen.Tools -> ToolsScreen(vm, onBack = pop, onDuplicates = { push(Screen.Duplicates) }, onMakeDefault = { askDefaultDialer() }, onRecordings = { push(Screen.Recordings) })
+        Screen.Recordings -> com.taiful.tfcontacts.ui.RecordingsScreen(onBack = pop)
     }
 
     // Progress box for long jobs
