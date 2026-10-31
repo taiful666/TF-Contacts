@@ -25,10 +25,30 @@ object CallHelper {
         emptyList()
     }
 
-    fun accountLabel(context: Context, h: PhoneAccountHandle): String = try {
-        telecom(context).getPhoneAccount(h)?.label?.toString() ?: "SIM"
-    } catch (_: Exception) {
-        "SIM"
+    /** Operator name for a SIM (e.g. "Grameenphone"), falling back to the system label. */
+    @SuppressLint("MissingPermission")
+    fun accountLabel(context: Context, h: PhoneAccountHandle): String {
+        try {
+            if (android.os.Build.VERSION.SDK_INT >= 30) {
+                val tm = context.getSystemService(android.telephony.TelephonyManager::class.java)
+                val subId = tm.getSubscriptionId(h)
+                val sm = context.getSystemService(android.telephony.SubscriptionManager::class.java)
+                val info = sm.getActiveSubscriptionInfo(subId)
+                val name = info?.carrierName?.toString()?.takeIf { it.isNotBlank() } ?: info?.displayName?.toString()
+                if (!name.isNullOrBlank()) return name
+            }
+            val subs = context.getSystemService(android.telephony.SubscriptionManager::class.java).activeSubscriptionInfoList.orEmpty()
+            subs.firstOrNull { it.subscriptionId.toString() == h.id || (it.iccId != null && it.iccId == h.id) }?.let { s ->
+                val n = s.carrierName?.toString()?.takeIf { it.isNotBlank() } ?: s.displayName?.toString()
+                if (!n.isNullOrBlank()) return n
+            }
+        } catch (_: Exception) {
+        }
+        return try {
+            telecom(context).getPhoneAccount(h)?.label?.toString() ?: "SIM"
+        } catch (_: Exception) {
+            "SIM"
+        }
     }
 
     @SuppressLint("MissingPermission")

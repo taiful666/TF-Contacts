@@ -80,6 +80,7 @@ class MainActivity : ComponentActivity() {
     /** Number sent by another app ("dial this number"). */
     private val incomingDial = MutableStateFlow<String?>(null)
     private val openTools = MutableStateFlow(false)
+    private val openHistory = MutableStateFlow(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -92,7 +93,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             TFTheme {
                 Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                    Root(vm, incomingDial, openTools)
+                    Root(vm, incomingDial, openTools, openHistory)
                 }
             }
         }
@@ -112,7 +113,12 @@ class MainActivity : ComponentActivity() {
 
     private fun readDialIntent(i: Intent?) {
         if (i == null) return
-        if (i.action == Intent.ACTION_DIAL || i.action == Intent.ACTION_VIEW) {
+        val isCallsView = i.action == Intent.ACTION_VIEW && (i.type?.contains("calls") == true || i.data?.authority == "call_log")
+        if (i.getBooleanExtra("openHistory", false) || isCallsView) {
+            openHistory.value = true
+            return
+        }
+        if (i.action == Intent.ACTION_DIAL || (i.action == Intent.ACTION_VIEW && i.data?.scheme == "tel")) {
             incomingDial.value = i.data?.schemeSpecificPart ?: ""
         }
     }
@@ -133,7 +139,7 @@ private val allPerms: Array<String> = buildList {
 }.toTypedArray()
 
 @Composable
-private fun Root(vm: MainViewModel, incomingDial: MutableStateFlow<String?>, openTools: MutableStateFlow<Boolean>) {
+private fun Root(vm: MainViewModel, incomingDial: MutableStateFlow<String?>, openTools: MutableStateFlow<Boolean>, openHistory: MutableStateFlow<Boolean>) {
     val ctx = LocalContext.current
     val activity = ctx as ComponentActivity
     val prefs = remember { ctx.getSharedPreferences("tf", Context.MODE_PRIVATE) }
@@ -221,6 +227,18 @@ private fun Root(vm: MainViewModel, incomingDial: MutableStateFlow<String?>, ope
         }
     }
     val updateBuild by vm.updateBuild.collectAsState()
+    val historyReq by openHistory.collectAsState()
+    LaunchedEffect(historyReq) {
+        if (historyReq) {
+            tab = 0
+            while (stack.size > 1) stack.removeAt(stack.lastIndex)
+            openHistory.value = false
+        }
+    }
+    // Opening History = missed calls have been seen
+    LaunchedEffect(tab) {
+        if (tab == 0) kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { com.taiful.tfcontacts.call.MissedCalls.clear(ctx) }
+    }
 
     // First run: once contacts are loaded, open the duplicate cleaner if anything was found
     val loaded by vm.loaded.collectAsState()
