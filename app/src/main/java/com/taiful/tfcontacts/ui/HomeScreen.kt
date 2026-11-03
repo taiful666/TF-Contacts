@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@file:OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 
 package com.taiful.tfcontacts.ui
 
@@ -95,6 +95,8 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.fillMaxHeight
 import com.taiful.tfcontacts.call.CallHelper
 import androidx.compose.foundation.layout.WindowInsets
@@ -599,6 +601,11 @@ private fun DialerTab(
     val calls by vm.calls.collectAsState()
     var search by rememberSaveable { mutableStateOf("") }
     var padOpen by rememberSaveable { mutableStateOf(true) }
+    var searchFocused by remember { mutableStateOf(false) }
+    // While typing in the search box (phone keyboard open) the big number keys are hidden;
+    // only the SIM 1 / SIM 2 call buttons stay, so the two keyboards never show together.
+    val keyboardOpen = WindowInsets.isImeVisible
+    val typingSearch = searchFocused && keyboardOpen
     val hl = highlightStyle()
     val sims = remember { CallHelper.simAccounts(ctx) }
     val simNames = remember(sims) { sims.map { CallHelper.accountLabel(ctx, it) } }
@@ -654,7 +661,7 @@ private fun DialerTab(
                             search, { search = it }, singleLine = true,
                             textStyle = TextStyle(color = MaterialTheme.colorScheme.onSurface, fontSize = 15.sp),
                             cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth().onFocusChanged { searchFocused = it.isFocused }
                         )
                     }
                     if (search.isNotEmpty()) {
@@ -754,6 +761,8 @@ private fun DialerTab(
                     Box(Modifier.fillMaxWidth().height(16.dp).clickable { padOpen = false }, contentAlignment = Alignment.Center) {
                         Box(Modifier.size(width = 40.dp, height = 4.dp).clip(RoundedCornerShape(2.dp)).background(cs.onSurfaceVariant.copy(alpha = 0.35f)))
                     }
+                    AnimatedVisibility(visible = !typingSearch) {
+                    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
                     // Number display (only takes space once something is typed)
                     AnimatedVisibility(visible = text.isNotEmpty()) {
                         Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp).height(44.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -794,6 +803,8 @@ private fun DialerTab(
                                 }
                             }
                         }
+                    }
+                    }
                     }
                     Spacer(Modifier.height(6.dp))
                     // Call button(s): one per SIM when the phone has two SIMs
