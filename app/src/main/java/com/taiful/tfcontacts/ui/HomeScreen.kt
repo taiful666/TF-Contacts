@@ -94,6 +94,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.fillMaxHeight
 import com.taiful.tfcontacts.call.CallHelper
 import androidx.compose.foundation.layout.WindowInsets
@@ -149,7 +150,8 @@ fun HomeScreen(
             }
         }
     ) { pad ->
-        Column(Modifier.padding(pad).consumeWindowInsets(pad).fillMaxSize()) {
+        // imePadding: shrink the screen above the on-screen keyboard so search results are never hidden behind it
+        Column(Modifier.padding(pad).consumeWindowInsets(pad).fillMaxSize().imePadding()) {
             if (!isDefault) {
                 Surface(
                     onClick = onMakeDefault,
@@ -603,7 +605,10 @@ private fun DialerTab(
     val listState = rememberLazyListState()
     // Scrolling the list hides the keypad so more contacts are visible (like iPhone / Google Phone)
     LaunchedEffect(listState.isScrollInProgress) {
-        if (listState.isScrollInProgress && (listState.canScrollForward || listState.canScrollBackward)) padOpen = false
+        if (listState.isScrollInProgress && (listState.canScrollForward || listState.canScrollBackward)) {
+            padOpen = false
+            if (search.isNotBlank()) focus.clearFocus() // scrolling search results hides the keyboard to show more
+        }
     }
     val toneOn = remember { Settings.System.getInt(ctx.contentResolver, Settings.System.DTMF_TONE_WHEN_DIALING, 1) == 1 }
     val tone = remember { try { ToneGenerator(AudioManager.STREAM_DTMF, 70) } catch (_: Exception) { null } }
